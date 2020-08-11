@@ -10,7 +10,7 @@ pub fn exec_command(options: &Options, command: &[String]) {
     let target_user = User::from_name(options.user.clone()).unwrap(); //somehow handle these eventually?
     set_env_vars(&current_user, &target_user, command, &options.shell);
     let user_input = rpassword::read_password_from_tty(Some("Password: ")).unwrap();
-    if check_pass(&user_input, &current_user.password) != Ok(()) {
+    if check_pass(&user_input, &current_user.get_password()) != Ok(()) {
         eprintln!("doas: Authentication failure");
         return;
     }
@@ -100,11 +100,11 @@ fn set_env_vars(
     env::set_var("DISPLAY", display);
     env::set_var("COLORTERM", color_term);
     env::set_var("TERM", term);
-    env::set_var("SUDO_USER", &current_user.name);
-    env::set_var("USERNAME", &current_user.name);
-    env::set_var("DOAS_USER", &current_user.name); //lol, why the heck not.
-    env::set_var("SUDO_UID", &current_user.uid.to_string());
-    env::set_var("SUDO_GID", &current_user.gid.to_string());
+    env::set_var("SUDO_USER", current_user.get_name());
+    env::set_var("USERNAME", current_user.get_name());
+    env::set_var("DOAS_USER", current_user.get_name()); //lol, why the heck not.
+    env::set_var("SUDO_UID", current_user.get_uid().to_string());
+    env::set_var("SUDO_GID", current_user.get_gid().to_string());
     env::set_var(
         "SUDO_COMMAND",
         &command
@@ -114,14 +114,14 @@ fn set_env_vars(
     env::set_var(
         "HOME",
         &target_user
-            .home
+            .get_home()
             .to_owned()
             .into_os_string()
             .into_string()
             .unwrap(),
     );
-    env::set_var("USER", &target_user.name);
-    env::set_var("LOGNAME", &target_user.name);
+    env::set_var("USER", target_user.get_name());
+    env::set_var("LOGNAME", target_user.get_name());
     env::set_var(
         //lol this is hardcoded rn. Fite me.
         "PATH",
@@ -130,7 +130,7 @@ fn set_env_vars(
     let shell = if let Some(shell) = shell {
         shell
     } else {
-        &current_user.shell
+        current_user.get_shell()
     };
     env::set_var("SHELL", shell);
 }

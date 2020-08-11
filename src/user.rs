@@ -5,13 +5,13 @@ use std::path::PathBuf;
 #[allow(dead_code)]
 #[derive(Debug, PartialEq, Eq)]
 pub struct User {
-    pub name: String,
-    pub password: Password,
-    pub uid: u16,
-    pub gid: u16,
-    pub uid_info: String,
-    pub home: PathBuf,
-    pub shell: PathBuf,
+    name: String,
+    password: Password,
+    uid: u16,
+    gid: u16,
+    uid_info: String,
+    home: PathBuf,
+    shell: PathBuf,
 }
 
 impl User {
@@ -103,18 +103,6 @@ impl User {
         }
 
         Err(())
-    }
-
-    pub fn test_user() -> Self {
-        Self {
-            name: String::from("😀test"),
-            password: Password::NoPass,
-            uid: 0,
-            gid: 0,
-            uid_info: String::new(),
-            home: PathBuf::new(),
-            shell: PathBuf::new(),
-        }
     }
 }
 

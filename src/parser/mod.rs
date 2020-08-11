@@ -1,28 +1,103 @@
-use crate::user::User;
-
+//TODO: This entire API could of been improved if I just passed around the rule builder, instead of
+//Arg Possibilities and that whole jam. Oh well, live and learn.
 use nom::branch::alt;
 use nom::bytes::complete::tag;
 use nom::bytes::complete::take_till;
+use nom::bytes::complete::take_until;
 use nom::combinator::map;
+use nom::combinator::map_parser;
+use nom::combinator::opt;
+use nom::multi::many0;
 
 use std::collections::HashMap;
 
+mod parser_err;
+use parser_err::ParserError;
+
+mod rules;
+use rules::Rule;
+use rules::RuleBuilder;
+
+#[cfg(test)]
+mod tests;
+
+#[allow(dead_code)]
 fn parse_rule(contents: &str) -> Result<Rule, ParserError<&str>> {
     let rule_builder = RuleBuilder::new();
 
     let (remaining, parser_rule) =
         alt::<_, _, ParserError<&str>, _>((tag("#"), tag("permit"), tag("deny")))(contents)
-            .map_err(|_| ParserError::UnknownRule)?;
+            .map_err(|_| match get_next_word(contents) {
+                Err(nom::Err::Error(ParserError::NoArgsLeft)) => ParserError::NoRule,
+                Ok((_, matched)) => ParserError::UnknownRule(matched.to_owned()),
+                _ => unreachable!(),
+            })?;
 
-    let rule_builder = match parser_rule {
-        "permit" => rule_builder.with_rule_type("permit"),
-        "deny" => rule_builder.with_rule_type("deny"),
-        "#" => rule_builder.with_rule_type("comment"),
+    let mut rule_builder = rule_builder.with_rule_type(parser_rule);
+
+    let (remaining, args) = parse_all_args(remaining).map_err(|err| match err {
+        nom::Err::Failure(e) => e,
+        nom::Err::Error(e) => e,
         _ => unreachable!(),
-    };
+    })?;
 
-    remaining.trim_start();
-    todo!()
+    for i in args {
+        rule_builder = match i {
+            ArgPossibility::Persist => rule_builder.with_persist(true),
+            ArgPossibility::NoPass => rule_builder.with_no_pass(true),
+            ArgPossibility::KeepEnv => rule_builder.with_keep_env(true),
+            ArgPossibility::SetEnv(map) => rule_builder.with_set_env(map),
+        }
+    }
+    let (remaining, user) = get_next_word(remaining).map_err(|_|ParserError::NoUser)?;
+    rule_builder = rule_builder.with_identity_name(user);
+    let (remaining, target) = get_target(remaining).map_err(|_|ParserError::NoTarget)?;
+    if let Some(target) = target {
+        rule_builder = rule_builder.with_target(target);
+    }
+    let (remaining, cmd) = get_cmd(remaining).map_err(|_|ParserError::NoCmd)?;
+    if let Some(cmd) = cmd {
+        rule_builder = rule_builder.with_cmd(cmd);
+    }
+    if !remaining.trim().is_empty() {
+        return Err(ParserError::FoundTrailingAfterRule);
+    }
+    Ok(rule_builder.build().unwrap())
+}
+
+fn get_target(contents: &str) -> nom::IResult<&str, Option<&str>, ParserError<&str>> {
+    Ok(match opt(map_parser(get_next_word, tag("as")))(contents)? {
+        (remaining, Some(_)) => {
+            let (remaining, next_word) = get_next_word(remaining)?;
+            (remaining, Some(next_word))
+        }
+        (remaining, None) => (remaining, None),
+    })
+}
+
+fn get_cmd(contents: &str) -> nom::IResult<&str, Option<std::process::Command>, ParserError<&str>> {
+    let (remaining, matched) = opt(map_parser(get_next_word, tag("cmd")))(contents)?;
+    if matched.is_none() {
+        return Ok((remaining, None))
+    }
+    let (remaining, args) = many0(get_next_word)(remaining)?;
+    Ok((
+        remaining,
+        match &args {
+            vec if vec.len() > 1 => Some({
+                let mut cmd = std::process::Command::new(vec[0]);
+                cmd.args(&vec[1..]);
+                cmd
+            }),
+            vec if vec.len() == 1 => Some(std::process::Command::new(vec[0])),
+            vec if vec.is_empty() => return Err(nom::Err::Failure(ParserError::NoCmd)),
+            _ => unreachable!()
+        },
+    ))
+}
+
+fn parse_all_args(contents: &str) -> nom::IResult<&str, Vec<ArgPossibility>, ParserError<&str>> {
+    Ok(many0(parse_arg)(contents.trim())?)
 }
 
 fn parse_arg(contents: &str) -> nom::IResult<&str, ArgPossibility, ParserError<&str>> {
@@ -30,173 +105,60 @@ fn parse_arg(contents: &str) -> nom::IResult<&str, ArgPossibility, ParserError<&
         map(
             alt((tag("persist"), tag("nopass"), tag("keepenv"))),
             |s: &str| match s {
-                "persist" => ArgPossibility::persist,
-                "nopass" => ArgPossibility::no_pass,
-                "keepenv" => ArgPossibility::keep_env,
+                "persist" => ArgPossibility::Persist,
+                "nopass" => ArgPossibility::NoPass,
+                "keepenv" => ArgPossibility::KeepEnv,
                 _ => unreachable!(),
             },
         ),
         parse_set_env,
-    ))(contents)
+    ))(contents.trim())
 }
 
-fn parse_set_env(contents: &str) -> nom::IResult<&str, ArgPossibility, ParserError<&str>> {
-    let (remaining, matched_val) = tag("setenv")(contents)?;
-    let (after_opening_brace, brace) = tag("{")(remaining.trim_start())?;
-    let (inside_set_env, closing_brace) = take_till(|c| c == '}')(after_opening_brace.trim())?;
-    todo!()
+fn parse_set_env(contents: &str) -> nom::IResult<&str, ArgPossibility, ParserError<'_, &str>> {
+    let (remaining, _matched_val) = tag("setenv")(contents)?;
+    let (after_opening_brace, _brace) = tag::<_, _, ParserError<&str>>("{")(remaining.trim_start())
+        .map_err(|_| nom::Err::Failure(ParserError::UnmatchedOrNoSetEnvBracket))?;
+
+    let (everything_following_closing_brace, inside_set_env) =
+        take_until::<_, _, ParserError<&str>>("}")(after_opening_brace.trim_start())
+            .map_err(|_| nom::Err::Failure(ParserError::UnmatchedOrNoSetEnvBracket))?;
+
+    let (_should_be_empty, pairs) = many0(get_next_word)(inside_set_env)?;
+    let pairs = pairs
+        .into_iter()
+        .as_slice()
+        .chunks(2)
+        .filter_map(|t| {
+            if t.len() == 2 {
+                Some((t[0], t[1]))
+            } else {
+                None
+            }
+        })
+        .collect();
+    if !_should_be_empty.trim().is_empty() {
+        Err(nom::Err::Error(ParserError::InvalidKeyValsInSetEnv(pairs)))
+    } else {
+        Ok((
+            &everything_following_closing_brace[1..],
+            ArgPossibility::SetEnv(pairs),
+        ))
+    }
 }
 
-fn get_next_word(contents: &str) -> nom::IResult<&str, ArgPossibility, ParserError<&str>> {
-    todo!()
+fn get_next_word(contents: &str) -> nom::IResult<&str, &str, ParserError<&str>> {
+    let (remaining, _whitespace) = take_till(|c| !" =\t".contains(c))(contents)?;
+    if remaining.is_empty() {
+        return Err(nom::Err::Error(ParserError::NoArgsLeft));
+    }
+    take_till(|c| " =\t".contains(c))(remaining)
 }
 
 #[derive(Debug, Eq, PartialEq)]
-enum ArgPossibility<'a> {
-    persist,
-    no_pass,
-    keep_env,
-    set_env(HashMap<&'a str, &'a str>),
-}
-
-#[derive(Debug, PartialEq, Eq)]
-enum Rule {
-    Permit(User, ConfigArgs),
-    Deny(User, ConfigArgs),
-    Comment,
-}
-
-struct RuleBuilder<'a> {
-    rule_type: Option<&'a str>,
-    identity_name: Option<&'a str>,
-    permit: bool,
-    no_pass: bool,
-    set_env: HashMap<&'a str, &'a str>,
-    target: Option<&'a str>,
-}
-
-#[derive(Debug, PartialEq, Eq, Default)]
-struct ConfigArgs {
-    permit: bool,
-    keep_env: bool,
-    no_pass: bool,
-    set_env: HashMap<String, String>,
-    target: Option<User>,
-}
-
-impl<'a> RuleBuilder<'a> {
-    fn new() -> Self {
-        Self {
-            rule_type: None,
-            identity_name: None,
-            permit: false,
-            no_pass: false,
-            set_env: HashMap::new(),
-            target: None,
-        }
-    }
-    fn with_rule_type(mut self, rule: &'a str) -> RuleBuilder<'a> {
-        self.rule_type = Some(rule);
-        self
-    }
-    fn with_identity_name(mut self, name: &'a str) -> RuleBuilder<'a> {
-        self.identity_name = Some(name);
-        self
-    }
-    fn with_no_pass(mut self, no_pass: bool) -> RuleBuilder<'a> {
-        self.no_pass = no_pass;
-        self
-    }
-    fn with_set_env(mut self, env: HashMap<&'a str, &'a str>) -> RuleBuilder<'a> {
-        self.set_env = env;
-        self
-    }
-    fn with_target(mut self, target_user: &'a str) -> RuleBuilder<'a> {
-        self.target = Some(target_user);
-        self
-    }
-}
-
-#[derive(Debug, PartialEq, Eq)]
-enum ParserError<I> {
-    UnknownRule,
-    NomError(I, nom::error::ErrorKind),
-}
-
-impl<I> nom::error::ParseError<I> for ParserError<I> {
-    fn from_error_kind(input: I, kind: nom::error::ErrorKind) -> Self {
-        Self::NomError(input, kind)
-    }
-    fn append(_: I, _: nom::error::ErrorKind, other: Self) -> Self {
-        other
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn check_parse_arg_bool_type() {
-        assert_eq!(
-            parse_arg("persist test"),
-            Ok((" test", ArgPossibility::persist)),
-        );
-    }
-
-    #[test]
-    #[ignore]
-    fn check_parse_arg_set_env() {
-        todo!()
-    }
-
-    #[test]
-    #[ignore]
-    fn check_ok_parse_path() {
-        assert_eq!(
-            parse_rule(
-                "permit nopass keepenv setenv {TESTVAR = TESTKEY} 😀test_user as root cmd cargo"
-            ),
-            Ok(Rule::Permit(
-                User::test_user(),
-                ConfigArgs {
-                    keep_env: true,
-                    no_pass: true,
-                    set_env: {
-                        let mut m = HashMap::new();
-                        m.insert(String::from("TESTVAR"), String::from("TESTKEY"));
-                        m
-                    },
-                    ..Default::default()
-                }
-            ))
-        )
-    }
-
-    #[test]
-    #[ignore]
-    fn check_err_parse_path() {
-        assert!(parse_rule("hi permit") == Err(ParserError::UnknownRule))
-    }
-
-    #[test]
-    #[ignore]
-    fn check_deny_path() {
-        assert_eq!(
-            parse_rule("permit nopass keepenv setenv {TESTVAR = TESTKEY} as root cmd cargo"),
-            Ok(Rule::Permit(
-                User::test_user(),
-                ConfigArgs {
-                    keep_env: true,
-                    no_pass: true,
-                    set_env: {
-                        let mut m = HashMap::new();
-                        m.insert(String::from("TESTVAR"), String::from("TESTKEY"));
-                        m
-                    },
-                    ..Default::default()
-                }
-            ))
-        )
-    }
+pub enum ArgPossibility<'a> {
+    Persist,
+    NoPass,
+    KeepEnv,
+    SetEnv(HashMap<&'a str, &'a str>),
 }
