@@ -11,10 +11,10 @@ use nom::multi::many0;
 
 use std::collections::HashMap;
 
-mod parser_err;
+pub mod parser_err;
 use parser_err::ParserError;
 
-mod rules;
+pub mod rules;
 use rules::Rule;
 use rules::RuleBuilder;
 

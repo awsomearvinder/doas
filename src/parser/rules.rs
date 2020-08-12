@@ -33,6 +33,20 @@ impl Rule {
             Self::Comment => None,
         }
     }
+    pub fn get_identity(&self) -> Option<&str> {
+        match self {
+            Self::Permit(user, _) => Some(user),
+            Self::Deny(user, _) => Some(user),
+            Self::Comment => None,
+        }
+    }
+    pub fn get_set_env(&self) -> Option<&HashMap<String, String>> {
+        match self {
+            Self::Permit(_, args) => Some(&args.set_env),
+            Self::Deny(_, args) => Some(&args.set_env),
+            Self::Comment => None,
+        }
+    }
 }
 
 fn check_if_match(
@@ -72,6 +86,7 @@ fn check_if_match(
     true
 }
 
+#[derive(Default)]
 pub struct RuleBuilder<'a> {
     rule_type: Option<&'a str>,
     identity_name: Option<&'a str>,
@@ -97,17 +112,7 @@ pub struct ConfigArgs {
 
 impl<'a> RuleBuilder<'a> {
     pub fn new() -> Self {
-        Self {
-            rule_type: None,
-            identity_name: None,
-            keep_env: false,
-            persist: false,
-            no_pass: false,
-            set_env: HashMap::new(),
-            target: None,
-            cmd: None,
-            args: None,
-        }
+        Self::default()
     }
 
     pub fn with_rule_type(mut self, rule: &'a str) -> RuleBuilder<'a> {

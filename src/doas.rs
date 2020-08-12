@@ -1,6 +1,9 @@
+use crate::parser::rules::Rule;
 use crate::user::{Password, User};
 use crate::Options;
 use nix::unistd;
+
+use std::collections::HashMap;
 use std::env;
 use std::os::unix::process::ExitStatusExt;
 
@@ -15,7 +18,6 @@ pub fn exec_doas(options: &Options, command: &[String]) {
         eprintln!("Couldn't find target user");
         std::process::exit(1);
     }); //somehow handle these eventually?
-    set_env_vars(&current_user, &target_user, command, &options.shell);
     let conf_contents = std::fs::read_to_string(&options.config_file).unwrap_or_else(|_| {
         eprintln!(
             "couldn't read config file {:?}, exiting.",
@@ -29,7 +31,7 @@ pub fn exec_doas(options: &Options, command: &[String]) {
         std::process::exit(1);
     });
     let cmd_args: Vec<_> = cmd.map(|s| s.as_str()).collect();
-    if let Ok(is_allowed) = check_if_allowed(
+    if let (is_allowed, Some(rule)) = check_if_allowed_and_get_rule(
         &current_user,
         &cmd_name,
         &cmd_args,
@@ -51,6 +53,13 @@ pub fn exec_doas(options: &Options, command: &[String]) {
                 eprintln!("doas: Authentication failure");
                 return;
             }
+            set_env_vars(
+                &current_user,
+                &target_user,
+                command,
+                &options.shell,
+                rule.get_set_env(),
+            );
 
             exec_command(cmd_name, &cmd_args, &target_user)
         } else {
@@ -81,15 +90,17 @@ fn exec_command(command_name: &str, args: &[&str], target_user: &User) {
     std::process::exit(1);
 }
 
-fn check_if_allowed(
+///Checks if the command is allowed, and returns a bool and Option<Rule>.
+///If no matches were found in the config, it'll return (false, None)
+fn check_if_allowed_and_get_rule(
     user: &User,
     cmd: &str,
     cmd_args: &[&str],
     target: &str,
     config_contents: &str,
-) -> std::io::Result<bool> {
+) -> (bool, Option<Rule>) {
     let conf_rules = config_contents.split('\n');
-    let mut is_last_match_allowed = false;
+    let (mut is_last_match_allowed, mut last_active_rule) = (false, None);
     for (i, rule) in conf_rules.enumerate() {
         if rule.is_empty() {
             continue;
@@ -107,9 +118,10 @@ fn check_if_allowed(
 
         if let Some(is_allowed) = rule.is_allowed(user.get_name(), cmd, cmd_args, target) {
             is_last_match_allowed = dbg!(is_allowed);
+            last_active_rule = Some(rule);
         }
     }
-    Ok(dbg!(is_last_match_allowed))
+    (is_last_match_allowed, last_active_rule)
 }
 
 ///Check if user input password and hashed password are same.
@@ -172,6 +184,7 @@ fn set_env_vars(
     target_user: &User,
     command: &[String],
     shell: &Option<std::path::PathBuf>,
+    set_env: Option<&HashMap<String, String>>,
 ) {
     let term = env::var("TERM").unwrap();
     let lang = env::var("LANG").unwrap();
@@ -215,4 +228,9 @@ fn set_env_vars(
         current_user.get_shell()
     };
     env::set_var("SHELL", shell);
+    if let Some(map) = set_env {
+        for (key, value) in map.iter() {
+            env::set_var(key, value);
+        }
+    }
 }
