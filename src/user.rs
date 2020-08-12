@@ -1,3 +1,4 @@
+use nix::unistd;
 use std::path::Path;
 use std::path::PathBuf;
 
@@ -7,8 +8,8 @@ use std::path::PathBuf;
 pub struct User {
     name: String,
     password: Password,
-    uid: u16,
-    gid: u16,
+    uid: unistd::Uid,
+    gid: u32,
     uid_info: String,
     home: PathBuf,
     shell: PathBuf,
@@ -23,11 +24,11 @@ impl User {
         &self.password
     }
 
-    pub fn get_uid(&self) -> u16 {
+    pub fn get_uid(&self) -> unistd::Uid {
         self.uid
     }
 
-    pub fn get_gid(&self) -> u16 {
+    pub fn get_gid(&self) -> u32 {
         self.gid
     }
 
@@ -63,15 +64,15 @@ impl User {
                 };
 
                 //Some beautiful boilerplate below.
-                let uid = user_info.next().ok_or(())?.parse::<u16>().map_err(|_| ())?;
-                let gid = user_info.next().ok_or(())?.parse::<u16>().map_err(|_| ())?;
+                let uid = user_info.next().ok_or(())?.parse::<u32>().map_err(|_| ())?;
+                let gid = user_info.next().ok_or(())?.parse::<u32>().map_err(|_| ())?;
                 let uid_info = user_info.next().ok_or(())?.into();
                 let home = user_info.next().ok_or(())?.into();
                 let shell = user_info.next().ok_or(())?.into();
                 return Ok(User {
                     name,
                     password,
-                    uid,
+                    uid: unistd::Uid::from_raw(uid),
                     gid,
                     uid_info,
                     home,

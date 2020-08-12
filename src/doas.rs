@@ -1,5 +1,6 @@
 use crate::user::{Password, User};
 use crate::Options;
+use nix::unistd;
 use std::env;
 use std::os::unix::process::ExitStatusExt;
 
@@ -36,23 +37,32 @@ pub fn exec_doas(options: &Options, command: &[String]) {
         &conf_contents,
     ) {
         if is_allowed {
+            //If the config file is not at default path, -C must of been passed.
+            //If that's true, we don't want to actually run the app. Only say if the
+            //given config allows for the command.
             if options.config_file.as_os_str().to_str() != Some("/etc/doas.conf") {
                 println!("Permitted due to config rule.");
                 return;
             }
+
+            //Check for password before execution.
             let user_input = rpassword::read_password_from_tty(Some("Password: ")).unwrap();
             if check_pass(&user_input, &current_user.get_password()) != Ok(()) {
                 eprintln!("doas: Authentication failure");
                 return;
             }
-            exec_command(cmd_name, &cmd_args)
+
+            exec_command(cmd_name, &cmd_args, &target_user)
         } else {
             eprintln!("Denied due to config rule.");
         }
     }
 }
 
-fn exec_command(command_name: &str, args: &[&str]) {
+fn exec_command(command_name: &str, args: &[&str], target_user: &User) {
+    let mode = nix::sys::stat::Mode::from_bits(0o0022).unwrap(); //default umask for root.
+    nix::sys::stat::umask(mode);
+    unistd::setuid(target_user.get_uid()).unwrap_or_else(|_| panic!("Couldn't set UID"));
     match std::process::Command::new(command_name).args(args).spawn() {
         Ok(mut child) => {
             let exitcode = child.wait().unwrap();
