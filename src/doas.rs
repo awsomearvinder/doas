@@ -48,7 +48,11 @@ pub fn exec_doas(options: &Options, command: &[String]) {
             }
 
             //Check for password before execution.
-            let user_input = rpassword::read_password_from_tty(Some("Password: ")).unwrap();
+            let user_input = rpassword::read_password_from_tty(Some(&format!(
+                "[doas] password for {}: ",
+                current_user.get_name()
+            )))
+            .unwrap();
             if check_pass(&user_input, &current_user.get_password()) != Ok(()) {
                 eprintln!("doas: Authentication failure");
                 return;
