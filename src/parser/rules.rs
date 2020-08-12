@@ -64,7 +64,7 @@ fn check_if_match(
         if !cmd_args
             .iter()
             .map(|s| s.trim())
-            .eq(cmd_args.iter().map(|s| s.trim()))
+            .eq(conf_cmd_args.iter().map(|s| s.trim()))
         {
             return false;
         }
