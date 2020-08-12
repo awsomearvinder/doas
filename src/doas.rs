@@ -10,7 +10,10 @@ pub fn exec_doas(options: &Options, command: &[String]) {
     //TODO: do something with user
     let current_user = env::var("USER").unwrap();
     let current_user = User::from_name(current_user).unwrap(); //somehow handle these eventually?
-    let target_user = User::from_name(options.user.clone()).unwrap(); //somehow handle these eventually?
+    let target_user = User::from_name(options.user.clone()).unwrap_or_else(|_| {
+        eprintln!("Couldn't find target user");
+        std::process::exit(1);
+    }); //somehow handle these eventually?
     set_env_vars(&current_user, &target_user, command, &options.shell);
     let conf_contents = std::fs::read_to_string(&options.config_file).unwrap_or_else(|_| {
         eprintln!(
