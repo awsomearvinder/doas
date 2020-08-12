@@ -121,7 +121,7 @@ fn check_if_allowed_and_get_rule(
         };
 
         if let Some(is_allowed) = rule.is_allowed(user.get_name(), cmd, cmd_args, target) {
-            is_last_match_allowed = dbg!(is_allowed);
+            is_last_match_allowed = is_allowed;
             last_active_rule = Some(rule);
         }
     }
