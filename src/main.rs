@@ -39,5 +39,5 @@ pub struct Options {
 
 fn main() {
     let opts = Options::from_args();
-    doas::exec_command(&opts, &opts.command)
+    doas::exec_doas(&opts, &opts.command)
 }

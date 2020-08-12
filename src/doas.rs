@@ -1,21 +1,17 @@
 use crate::user::{Password, User};
 use crate::Options;
 use std::env;
+use std::os::unix::process::ExitStatusExt;
 
 use crate::parser;
 
-///Executes a doas command.
-pub fn exec_command(options: &Options, command: &[String]) {
+///Execute doas.
+pub fn exec_doas(options: &Options, command: &[String]) {
     //TODO: do something with user
     let current_user = env::var("USER").unwrap();
     let current_user = User::from_name(current_user).unwrap(); //somehow handle these eventually?
     let target_user = User::from_name(options.user.clone()).unwrap(); //somehow handle these eventually?
     set_env_vars(&current_user, &target_user, command, &options.shell);
-    let user_input = rpassword::read_password_from_tty(Some("Password: ")).unwrap();
-    if check_pass(&user_input, &current_user.get_password()) != Ok(()) {
-        eprintln!("doas: Authentication failure");
-        return;
-    }
     let conf_contents = std::fs::read_to_string(&options.config_file).unwrap_or_else(|_| {
         eprintln!(
             "couldn't read config file {:?}, exiting.",
@@ -28,28 +24,48 @@ pub fn exec_command(options: &Options, command: &[String]) {
         eprintln!("Did you give a valid command?");
         std::process::exit(1);
     });
-    let cmd_args: Vec<_> = cmd.collect();
+    let cmd_args: Vec<_> = cmd.map(|s| s.as_str()).collect();
     if let Ok(is_allowed) = check_if_allowed(
         &current_user,
         &cmd_name,
-        &cmd_args.iter().map(|s| s.as_str()).collect::<Vec<_>>(),
+        &cmd_args,
         target_user.get_name(),
         &conf_contents,
     ) {
         if is_allowed {
-            let cmd = std::process::Command::new(cmd_name).args(&cmd_args).spawn();
-            match cmd {
-                Ok(mut child) => child.wait().unwrap(),
-                Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
-                    eprintln!("doas: Couldn't find such command \"{}\", does it exist? \n If the programmer who made me is an idiot, consider opening a bug report on github." , cmd_name);
-                    std::process::exit(1);
-                }
-                Err(e) => panic!("got unexpected error {}", e),
-            };
+            if options.config_file.as_os_str().to_str() != Some("/etc/doas.conf") {
+                println!("Permitted due to config rule.");
+                return;
+            }
+            let user_input = rpassword::read_password_from_tty(Some("Password: ")).unwrap();
+            if check_pass(&user_input, &current_user.get_password()) != Ok(()) {
+                eprintln!("doas: Authentication failure");
+                return;
+            }
+            exec_command(cmd_name, &cmd_args)
         } else {
-            eprintln!("you're not allowed!");
+            eprintln!("Denied due to config rule.");
         }
     }
+}
+
+fn exec_command(command_name: &str, args: &[&str]) {
+    match std::process::Command::new(command_name).args(args).spawn() {
+        Ok(mut child) => {
+            let exitcode = child.wait().unwrap();
+            if let Some(code) = exitcode.code() {
+                std::process::exit(code);
+            }
+            if exitcode.signal().is_some() {
+                std::process::exit(0);
+            }
+        }
+        Err(error) => eprintln!(
+            "doas: got some error: {}\n while running {}",
+            error, command_name
+        ),
+    }
+    std::process::exit(1);
 }
 
 fn check_if_allowed(
@@ -77,10 +93,10 @@ fn check_if_allowed(
         };
 
         if let Some(is_allowed) = rule.is_allowed(user.get_name(), cmd, cmd_args, target) {
-            is_last_match_allowed = is_allowed;
+            is_last_match_allowed = dbg!(is_allowed);
         }
     }
-    Ok(is_last_match_allowed)
+    Ok(dbg!(is_last_match_allowed))
 }
 
 ///Check if user input password and hashed password are same.
