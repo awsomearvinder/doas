@@ -2,6 +2,8 @@ use crate::user::{Password, User};
 use crate::Options;
 use std::env;
 
+use crate::parser;
+
 ///Executes a doas command.
 pub fn exec_command(options: &Options, command: &[String]) {
     //TODO: do something with user
@@ -14,20 +16,68 @@ pub fn exec_command(options: &Options, command: &[String]) {
         eprintln!("doas: Authentication failure");
         return;
     }
-    let mut command = command.iter();
-    let command_name = command.next().unwrap();
-    let mut cmd = std::process::Command::new(command_name);
-    for argument in command {
-        cmd.arg(argument);
-    }
-    match cmd.spawn() {
-        Ok(mut child) => child.wait().unwrap(),
-        Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
-            eprintln!("doas: Couldn't find such command \"{}\", does it exist? \n If the programmer who made me is an idiot, consider opening a bug report on github." , command_name);
-            std::process::exit(1);
+    let conf_contents = std::fs::read_to_string(&options.config_file).unwrap_or_else(|_| {
+        eprintln!(
+            "couldn't read config file {:?}, exiting.",
+            options.config_file
+        );
+        std::process::exit(1);
+    });
+    let mut cmd = command.iter();
+    let cmd_name = cmd.next().unwrap_or_else(|| {
+        eprintln!("Did you give a valid command?");
+        std::process::exit(1);
+    });
+    let cmd_args: Vec<_> = cmd.collect();
+    if let Ok(is_allowed) = check_if_allowed(
+        &current_user,
+        &cmd_name,
+        &cmd_args.iter().map(|s| s.as_str()).collect::<Vec<_>>(),
+        target_user.get_name(),
+        &conf_contents,
+    ) {
+        if is_allowed {
+            let cmd = std::process::Command::new(cmd_name).args(&cmd_args).spawn();
+            match cmd {
+                Ok(mut child) => child.wait().unwrap(),
+                Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
+                    eprintln!("doas: Couldn't find such command \"{}\", does it exist? \n If the programmer who made me is an idiot, consider opening a bug report on github." , cmd_name);
+                    std::process::exit(1);
+                }
+                Err(e) => panic!("got unexpected error {}", e),
+            };
+        } else {
+            eprintln!("you're not allowed!");
         }
-        Err(e) => panic!("got unexpected error {}", e),
-    };
+    }
+}
+
+fn check_if_allowed(
+    user: &User,
+    cmd: &str,
+    cmd_args: &[&str],
+    target: &str,
+    config_contents: &str,
+) -> std::io::Result<bool> {
+    let conf_rules = config_contents.split('\n');
+    let mut is_last_match_allowed = false;
+    for (i, rule) in conf_rules.enumerate() {
+        let rule = match parser::parse_rule(rule) {
+            Ok(value) => value,
+            Err(e) => {
+                eprintln!(
+                    "Warning: Got error {}\n at line: {}\n in config \n with rule:{}",
+                    e, i, rule
+                );
+                continue;
+            }
+        };
+
+        if let Some(is_allowed) = rule.is_allowed(user.get_name(), cmd, cmd_args, target) {
+            is_last_match_allowed = is_allowed;
+        }
+    }
+    Ok(is_last_match_allowed)
 }
 
 ///Check if user input password and hashed password are same.
@@ -134,4 +184,3 @@ fn set_env_vars(
     };
     env::set_var("SHELL", shell);
 }
-

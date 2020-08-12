@@ -9,6 +9,7 @@ pub enum ParserError<'a, I> {
     NoUser,
     NoRule,
     NoCmd,
+    NoCmdArgs,
     UnmatchedOrNoSetEnvBracket,
     NomError(I, nom::error::ErrorKind),
     InvalidKeyValsInSetEnv(HashMap<&'a str, &'a str>),
@@ -46,6 +47,7 @@ impl<'a, I> std::fmt::Display for ParserError<'a, I> {
             ),
             Self::NoTarget => write!(f, "No provided target for rule after as keyword"),
             Self::NoCmd => write!(f, "No provided command after cmd keyword"),
+            Self::NoCmdArgs => write!(f, "No provided command after args keyword"),
         }
     }
 }

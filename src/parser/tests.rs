@@ -1,5 +1,3 @@
-use super::rules::ConfigArgs;
-use super::Rule;
 use super::*;
 
 #[test]
@@ -72,8 +70,31 @@ fn check_ok_permit_parse_path() {
                     m
                 })
                 .with_target("root")
-                .with_cmd(std::process::Command::new("cargo"))
+                .with_cmd("cargo")
                 .with_identity_name("user")
+        )
+        .unwrap()
+        .build()
+    )
+}
+
+#[test]
+fn check_ok_permit_parse_path_with_cmd_args() {
+    assert_eq!(
+        parse_rule("permit keepenv setenv {TESTVAR = TESTKEY} user as root cmd cargo args test -- --nocapture"),
+        Ok::<_, ParserError<&str>>(
+            RuleBuilder::new()
+                .with_rule_type("permit")
+                .with_keep_env(true)
+                .with_set_env({
+                    let mut m = HashMap::new();
+                    m.insert("TESTVAR", "TESTKEY");
+                    m
+                })
+                .with_target("root")
+                .with_cmd("cargo")
+                .with_identity_name("user")
+                .with_cmd_args(vec!["test", "--", "--nocapture"])
         )
         .unwrap()
         .build()
@@ -136,7 +157,7 @@ fn check_ok_deny_path() {
                 })
                 .with_identity_name("user")
                 .with_target("root")
-                .with_cmd(std::process::Command::new("cargo"))
+                .with_cmd("cargo")
         )
         .unwrap()
         .build()
