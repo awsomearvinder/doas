@@ -62,6 +62,9 @@ fn check_if_allowed(
     let conf_rules = config_contents.split('\n');
     let mut is_last_match_allowed = false;
     for (i, rule) in conf_rules.enumerate() {
+        if rule.is_empty() {
+            continue;
+        }
         let rule = match parser::parse_rule(rule) {
             Ok(value) => value,
             Err(e) => {
