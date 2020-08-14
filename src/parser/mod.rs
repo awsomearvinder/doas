@@ -61,17 +61,25 @@ pub fn parse_rule(contents: &str) -> Result<Rule, ParserError<&str>> {
     }
 
     //get the cmd, if it exists.
-    let (remaining, cmd) = get_cmd(remaining).map_err(|_| ParserError::NoCmd)?;
+    let (mut remaining, cmd) = get_cmd(remaining).map_err(|_| ParserError::NoCmd)?;
+
     if let Some(cmd) = cmd {
         rule_builder = rule_builder.with_cmd(cmd);
+        let (remaining_inner, cmd_args) =
+            get_cmd_args(remaining).map_err(|_| ParserError::NoCmdArgs)?;
+
+        //Args should only be given if a cmd has been given.
+        if let Some(args) = cmd_args {
+            rule_builder = rule_builder.with_cmd_args(args);
+        }
+
+        remaining = remaining_inner;
     }
-    let (remaining, cmd_args) = get_cmd_args(remaining).map_err(|_| ParserError::NoCmdArgs)?;
-    if let Some(args) = cmd_args {
-        rule_builder = rule_builder.with_cmd_args(args);
-    }
+
     if !remaining.trim().is_empty() {
         return Err(ParserError::FoundTrailingAfterRule);
     }
+
     Ok(rule_builder.build().unwrap())
 }
 
