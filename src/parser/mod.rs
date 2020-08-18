@@ -21,6 +21,8 @@ use rules::RuleBuilder;
 #[cfg(test)]
 mod tests;
 
+mod lexer;
+
 #[allow(dead_code)]
 pub fn parse_rule(contents: &str) -> Result<Rule, ParserError<&str>> {
     //This builds our "Rule" type, which can be a permit, deny, or comment (with info on the rule).
