@@ -11,6 +11,7 @@ mod lexer_tests;
 
 #[allow(dead_code)]
 pub fn get_tokens(data: &str) -> Result<Vec<Token>, LexerError<&str>> {
+    //This will be updated to hold the remaining data we have yet to parse.
     let mut data = data.trim();
     let mut tokens = Vec::new();
     while let Ok((remaining, token)) =
@@ -26,6 +27,7 @@ pub fn get_tokens(data: &str) -> Result<Vec<Token>, LexerError<&str>> {
 fn get_next_token(data: &str) -> nom::IResult<&str, Token, LexerError<&str>> {
     let (remaining, word) = get_next_word(" \t")(data)?;
     if word == "#" {
+        //if it's a comment just ignore it, and go to the next relevant thing.
         let (remaining, _) = take_until("\n")(remaining)?;
         return get_next_token(remaining);
     }
@@ -37,14 +39,15 @@ fn get_next_token(data: &str) -> nom::IResult<&str, Token, LexerError<&str>> {
 
 fn parse_set_env(data: &str) -> nom::IResult<&str, Token, LexerError<&str>> {
     let (remaining, _) = take_till(|c| c == '{')(data)?;
-    let (remaining, _) = tag::<_, _, ()>("{")(remaining)
+    let (remaining, _) = tag::<_, _, ()>("{")(remaining) //take the first brace out.
         .map_err(|_| nom::Err::Failure(LexerError::NoOrUnmatchedBracket))?;
     let (remaining, between_braces) = take_till(|c| c == '}')(remaining)?;
-    let (remaining, _) = tag::<_, _, ()>("}")(remaining)
-        .map_err(|_| nom::Err::Failure(LexerError::NoOrUnmatchedBracket))?; //make sure our output dosen't contain the last brace.
+    let (remaining, _) = tag::<_, _, ()>("}")(remaining) //make sure our output dosen't contain the last brace.
+        .map_err(|_| nom::Err::Failure(LexerError::NoOrUnmatchedBracket))?;
     let (_, tokens) = many0(get_next_word(" \t="))(between_braces)?;
     let num_to_take = if tokens.len() % 2 == 1 {
-        tokens.len() - 1
+        tokens.len() - 1 //eventually we'd want to somehow tell the user that they have an odd number of setenv key/vals.
+                         //this is obviously a bug because key/values should be pairs.
     } else {
         tokens.len()
     };
