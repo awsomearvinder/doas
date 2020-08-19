@@ -71,7 +71,8 @@ fn test_full_line() {
             Token::from("as"),
             Token::from("root"),
             Token::from("cmd"),
-            Token::from("cargo")
+            Token::from("cargo"),
+            Token::from("\n"),
         ])
     )
 }
