@@ -114,6 +114,24 @@ pub enum Token<'a> {
     SetEnv(HashMap<&'a str, &'a str>),
 }
 
+impl<'a> std::fmt::Display for Token<'a> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        Ok(match self {
+            Self::Permit => write!(f, "permit"),
+            Self::Deny => write!(f, "deny"),
+            Self::Persist => write!(f, "persist"),
+            Self::NoPass => write!(f, "nopass"),
+            Self::KeepEnv => write!(f, "keepenv"),
+            Self::As => write!(f, "as"),
+            Self::Cmd => write!(f, "cmd"),
+            Self::Args => write!(f, "args"),
+            Self::EOL => write!(f, "End Of Line"),
+            Self::Ident(identifier) => write!(f, "{}", identifier),
+            Self::SetEnv(map) => write!(f, "setenv {{{:?}}}", map),
+        })
+    }
+}
+
 impl<'a> From<&'a str> for Token<'a> {
     fn from(token: &'a str) -> Self {
         match token {
