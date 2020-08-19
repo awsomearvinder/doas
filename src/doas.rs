@@ -18,10 +18,10 @@ pub fn exec_doas(options: &Options, command: &[String]) {
         eprintln!("Couldn't find target user");
         std::process::exit(1);
     }); //somehow handle these eventually?
-    let conf_contents = std::fs::read_to_string(&options.config_file).unwrap_or_else(|_| {
+    let conf_contents = std::fs::read_to_string(&options.config_file).unwrap_or_else(|e| {
         eprintln!(
-            "couldn't read config file {:?}, exiting.",
-            options.config_file
+            "couldn't read config file {:?}, exiting. Error: {}",
+            options.config_file, e
         );
         std::process::exit(1);
     });
@@ -31,6 +31,7 @@ pub fn exec_doas(options: &Options, command: &[String]) {
         std::process::exit(1);
     });
     let cmd_args: Vec<_> = cmd.map(|s| s.as_str()).collect();
+    eprintln!("checking if allowed");
     if let (is_allowed, Some(rule)) = check_if_allowed_and_get_rule(
         &current_user,
         &cmd_name,
@@ -103,29 +104,16 @@ fn check_if_allowed_and_get_rule(
     target: &str,
     config_contents: &str,
 ) -> (bool, Option<Rule>) {
-    let conf_rules = config_contents.split('\n');
     let (mut is_last_match_allowed, mut last_active_rule) = (false, None);
-    for (i, rule) in conf_rules.enumerate() {
-        if rule.is_empty() {
-            continue;
-        }
-        let rule = match parser::parse_rule(rule) {
-            Ok(value) => value,
-            Err(e) => {
-                eprintln!(
-                    "Warning: Got error {}\n at line: {}\n in config \n with rule:{}",
-                    e, i, rule
-                );
-                continue;
-            }
-        };
-
+    for (_, rule) in parser::parse_rules(config_contents).into_iter().enumerate() {
+        eprintln!("{:?}", rule);
+        let rule = if let Ok(rule) = rule { rule } else { continue };
         if let Some(is_allowed) = rule.is_allowed(user.get_name(), cmd, cmd_args, target) {
             is_last_match_allowed = is_allowed;
             last_active_rule = Some(rule);
         }
     }
-    (is_last_match_allowed, last_active_rule)
+    dbg!((is_last_match_allowed, last_active_rule))
 }
 
 ///Check if user input password and hashed password are same.
