@@ -1,5 +1,6 @@
 use nom::bytes::complete::tag;
 use nom::bytes::complete::take_till;
+use nom::bytes::complete::take_until;
 use nom::bytes::complete::take_while;
 use nom::multi::many0;
 
@@ -23,6 +24,10 @@ pub fn get_tokens(data: &str) -> Result<Vec<Token>, LexerError<&str>> {
 
 fn get_next_token(data: &str) -> nom::IResult<&str, Token, LexerError<&str>> {
     let (remaining, word) = get_next_word(" \t")(data)?;
+    if word == "#" {
+        let (remaining, _) = take_until("\n")(remaining)?;
+        return get_next_token(remaining);
+    }
     if word == "setenv" {
         return parse_set_env(remaining);
     }
