@@ -4,6 +4,7 @@ pub enum ParserError<'a> {
     ExpectedRuleGot(super::lexer::Token<'a>),
     ExpectedOptionOrIdentityGot(super::lexer::Token<'a>),
     ExpectedCmdNameGot(super::lexer::Token<'a>),
+    ExpectedTargetGot(super::lexer::Token<'a>),
 }
 
 impl<'a> std::fmt::Display for ParserError<'a> {
@@ -23,6 +24,7 @@ impl<'a> std::fmt::Display for ParserError<'a> {
             Self::ExpectedCmdNameGot(token) => {
                 write!(f, "Expected a command name got \"{}\".", token)
             }
+            Self::ExpectedTargetGot(token) => write!(f, "Expected target user got \"{}\".",token)
         }
     }
 }

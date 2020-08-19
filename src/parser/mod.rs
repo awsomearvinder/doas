@@ -42,8 +42,11 @@ pub fn parse_rules<'a>(contents: &'a str) -> Vec<Result<Rule, ParserError<'a>>> 
             match tokens.next() {
                 Some(lexer::Token::As) => match tokens.next() {
                     Some(lexer::Token::Ident(target)) => rule = rule.target(target),
-                    Some(token) => panic!("Expected target user's name, got {:?} token", token),
-                    None => panic!("Expected target user name."),
+                    Some(token) => {
+                        rules.push(Err(ParserError::ExpectedTargetGot(token)));
+                        continue 'main;
+                    }
+                    None => rules.push(Err(ParserError::ExpectedTargetGot(lexer::Token::EOL))),
                 },
                 Some(lexer::Token::Cmd) => {
                     rules.push(get_cmd_and_args(rule, &mut tokens));
