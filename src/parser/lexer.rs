@@ -19,6 +19,7 @@ pub fn get_tokens(data: &str) -> Result<Vec<Token>, LexerError<&str>> {
         data = remaining;
         tokens.push(token);
     }
+    tokens.push(Token::EOL);
     Ok(tokens)
 }
 
