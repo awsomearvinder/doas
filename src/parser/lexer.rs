@@ -25,7 +25,10 @@ pub fn get_tokens(data: &str) -> Result<Vec<Token>, LexerError<&str>> {
 }
 
 fn get_next_token(data: &str) -> nom::IResult<&str, Token, LexerError<&str>> {
-    let (remaining, word) = get_next_word(" \t")(data)?;
+    if data.starts_with('\n') {
+        return Ok((&data[1..], Token::from("\n")));
+    }
+    let (remaining, word) = get_next_word(" \t\n")(data)?;
     if word == "#" {
         //if it's a comment just ignore it, and go to the next relevant thing.
         let (remaining, _) = take_until("\n")(remaining)?;
