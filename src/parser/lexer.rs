@@ -100,6 +100,7 @@ fn get_next_word<'a>(seperator: &'a str) -> Box<Combinator<'a>> {
 pub enum Token<'a> {
     Permit,
     Deny,
+    Persist,
     NoPass,
     KeepEnv,
     As,
@@ -118,6 +119,7 @@ impl<'a> From<&'a str> for Token<'a> {
             "\n" => Self::EOL,
             "nopass" => Self::NoPass,
             "keepenv" => Self::KeepEnv,
+            "persist" => Self::Persist,
             "as" => Self::As,
             "cmd" => Self::Cmd,
             "args" => Self::Args,
