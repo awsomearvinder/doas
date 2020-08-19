@@ -116,7 +116,7 @@ pub enum Token<'a> {
 
 impl<'a> std::fmt::Display for Token<'a> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        Ok(match self {
+        match self {
             Self::Permit => write!(f, "permit"),
             Self::Deny => write!(f, "deny"),
             Self::Persist => write!(f, "persist"),
@@ -128,7 +128,7 @@ impl<'a> std::fmt::Display for Token<'a> {
             Self::EOL => write!(f, "End Of Line"),
             Self::Ident(identifier) => write!(f, "{}", identifier),
             Self::SetEnv(map) => write!(f, "setenv {{{:?}}}", map),
-        })
+        }
     }
 }
 

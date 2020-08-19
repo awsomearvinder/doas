@@ -119,74 +119,74 @@ impl<'a> RuleBuilder<'a> {
         Self::default()
     }
 
-    pub fn permit(mut self) -> Self {
+    pub fn permit(self) -> Self {
         Self {
             rule_type: Some(RuleType::Permit),
             ..self
         }
     }
 
-    pub fn deny(mut self) -> Self {
+    pub fn deny(self) -> Self {
         Self {
             rule_type: Some(RuleType::Deny),
             ..self
         }
     }
 
-    pub fn keep_env(mut self) -> Self {
+    pub fn keep_env(self) -> Self {
         Self {
             keep_env: true,
             ..self
         }
     }
 
-    pub fn set_env(mut self, m: HashMap<&'a str, &'a str>) -> Self {
+    pub fn set_env(self, m: HashMap<&'a str, &'a str>) -> Self {
         Self { set_env: m, ..self }
     }
 
-    pub fn identity_name(mut self, name: &'a str) -> RuleBuilder<'a> {
+    pub fn identity_name(self, name: &'a str) -> RuleBuilder<'a> {
         Self {
             identity_name: Some(name),
             ..self
         }
     }
 
-    pub fn no_pass(mut self) -> Self {
+    pub fn no_pass(self) -> Self {
         Self {
             no_pass: true,
             ..self
         }
     }
 
-    pub fn target(mut self, target_user: &'a str) -> RuleBuilder<'a> {
+    pub fn target(self, target_user: &'a str) -> RuleBuilder<'a> {
         Self {
             target: Some(target_user),
             ..self
         }
     }
 
-    pub fn persist(mut self) -> RuleBuilder<'a> {
+    pub fn persist(self) -> RuleBuilder<'a> {
         Self {
             persist: true,
             ..self
         }
     }
 
-    pub fn with_cmd(mut self, cmd: &'a str) -> RuleBuilder<'a> {
+    pub fn with_cmd(self, cmd: &'a str) -> RuleBuilder<'a> {
         Self {
             cmd: Some(cmd),
             ..self
         }
     }
 
-    pub fn with_cmd_args(mut self, args: Vec<&'a str>) -> RuleBuilder<'a> {
+    pub fn with_cmd_args(self, args: Vec<&'a str>) -> RuleBuilder<'a> {
         Self {
             args: Some(args),
             ..self
         }
     }
 
-    pub fn build(self) -> Result<Rule, ParserError<'static, &'static str>> {
+    pub fn build(self) -> Result<Rule, ParserError<'static>> {
         //arguments for doas user.
         let args = ConfigArgs {
             persist: self.persist,
@@ -204,9 +204,12 @@ impl<'a> RuleBuilder<'a> {
                 .map(|v| v.into_iter().map(|s| s.to_owned()).collect()),
         };
 
-        let identity = self.identity_name.ok_or(ParserError::NoUser)?.to_owned();
+        let identity = self
+            .identity_name
+            .expect("wasn't given identity name.")
+            .to_owned();
 
-        Ok(match self.rule_type.ok_or(ParserError::NoRule)? {
+        Ok(match self.rule_type.expect("wasn't given rule type") {
             RuleType::Permit => Rule::Permit(identity, args),
             RuleType::Deny => Rule::Deny(identity, args),
         })
