@@ -195,13 +195,13 @@ impl<'a> RuleBuilder<'a> {
             set_env: self
                 .set_env
                 .into_iter()
-                .map(|(k, v)| (k.to_owned(), v.to_owned()))
+                .map(|(k, v)| (escaped_string(k), escaped_string(v)))
                 .collect(),
-            target: self.target.map(|s| s.to_owned()),
-            cmd: self.cmd.map(|s| s.to_owned()),
+            target: self.target.map(|s| escaped_string(s)),
+            cmd: self.cmd.map(|s| escaped_string(s)),
             args: self
                 .args
-                .map(|v| v.into_iter().map(|s| s.to_owned()).collect()),
+                .map(|v| v.into_iter().map(|s| escaped_string(s)).collect()),
         };
 
         let identity = self
@@ -213,5 +213,48 @@ impl<'a> RuleBuilder<'a> {
             RuleType::Permit => Rule::Permit(identity, args),
             RuleType::Deny => Rule::Deny(identity, args),
         })
+    }
+}
+
+#[derive(Debug, Default)]
+struct EscapeString {
+    previous_char_is_escape: bool,
+}
+impl EscapeString {
+    fn new() -> Self {
+        Self {
+            previous_char_is_escape: false,
+        }
+    }
+    fn should_char_be_escaped(&mut self, c: char) -> bool {
+        if self.previous_char_is_escape {
+            self.previous_char_is_escape = false;
+            true
+        } else if c == '\\' {
+            self.previous_char_is_escape = true;
+            false
+        } else {
+            c != '\"'
+        }
+    }
+}
+
+fn escaped_string(s: &str) -> String {
+    let mut escaped_string_state = EscapeString::new();
+    s.chars()
+        .filter(|&c| escaped_string_state.should_char_be_escaped(c))
+        .collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_escape_string() {
+        assert_eq!(escaped_string(r#"\ woah"#), String::from(" woah"));
+        assert_eq!(escaped_string("\" woah\""), String::from(" woah"));
+        assert_eq!(escaped_string(r#"\" woah\""#), String::from(r#"" woah""#));
+        assert_eq!(escaped_string("\\\" woah"), String::from("\" woah"));
     }
 }
