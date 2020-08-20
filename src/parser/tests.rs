@@ -33,6 +33,16 @@ fn check_parse_multi_line() {
 }
 
 #[test]
+fn check_unknown_rule() {
+    assert_eq!(
+        parse_rules("wiojgroijgioj"),
+        vec![
+            Err(ParserError::ExpectedRuleGot(lexer::Token::from("wiojgroijgioj")))
+        ]
+    )
+}
+
+#[test]
 fn check_parse_full_multi_line() {
     assert_eq!(
         parse_rules(

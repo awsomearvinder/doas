@@ -23,8 +23,10 @@ pub fn parse_rules<'a>(contents: &'a str) -> Vec<Result<Rule, ParserError<'a>>> 
             Some(token) => {
                 rules.push(Err(ParserError::ExpectedRuleGot(token)));
                 loop {
-                    if tokens.peek() == Some(&lexer::Token::Permit)
-                        || tokens.peek() == Some(&lexer::Token::Deny)
+                    let next_item = tokens.peek();
+                    if next_item == Some(&lexer::Token::Permit)
+                        || next_item == Some(&lexer::Token::Deny)
+                        || next_item == None
                     {
                         continue 'main;
                     } else {
