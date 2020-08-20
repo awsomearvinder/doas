@@ -137,3 +137,17 @@ fn check_parse_full_line() {
         ]
     )
 }
+
+#[test]
+fn check_parse_error_then_line() {
+    assert_eq!(
+        parse_rules("permit user ok \n permit bender"),
+        vec![
+            Err(ParserError::ExpectedCmdPathGot(lexer::Token::from("ok"))),
+            rules::RuleBuilder::new()
+                .permit()
+                .identity_name("bender")
+                .build()
+        ]
+    )
+}

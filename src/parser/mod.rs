@@ -41,6 +41,7 @@ pub fn parse_rules<'a>(contents: &'a str) -> Vec<Result<Rule, ParserError<'a>>> 
             Ok(rule) => rule,
             Err(e) => {
                 rules.push(Err(e));
+                go_until_next_rule(&mut tokens);
                 continue 'main;
             }
         };
@@ -65,7 +66,8 @@ pub fn parse_rules<'a>(contents: &'a str) -> Vec<Result<Rule, ParserError<'a>>> 
                 }
                 Some(token) => {
                     rules.push(Err(ParserError::ExpectedCmdPathGot(token)));
-                    break;
+                    go_until_next_rule(&mut tokens);
+                    continue 'main;
                 }
                 None => break 'main,
             }
@@ -120,6 +122,22 @@ pub fn get_options_and_identity<'a, T: Iterator<Item = lexer::Token<'a>>>(
             }
             Some(token) => return Err(ParserError::ExpectedOptionOrIdentityGot(token)),
             None => return Err(ParserError::ExpectedOptionOrIdentityGot(lexer::Token::EOL)),
+        }
+    }
+}
+
+fn go_until_next_rule<'a, T: Iterator<Item = lexer::Token<'a>>>(
+    tokens: &mut std::iter::Peekable<T>,
+) {
+    loop {
+        let next_item = tokens.peek();
+        if next_item == Some(&lexer::Token::Permit)
+            || next_item == Some(&lexer::Token::Deny)
+            || next_item == None
+        {
+            return;
+        } else {
+            tokens.next();
         }
     }
 }
