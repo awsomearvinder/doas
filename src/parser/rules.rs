@@ -7,6 +7,17 @@ pub enum Rule {
     Deny(String, ConfigArgs),
     Comment,
 }
+
+#[derive(Debug, PartialEq, Eq, Default)]
+pub struct ConfigArgs {
+    persist: bool,
+    keep_env: bool,
+    no_pass: bool,
+    set_env: HashMap<String, String>,
+    target: Option<String>,
+    cmd: Option<String>,
+    args: Option<Vec<String>>,
+}
 impl Rule {
     pub fn is_allowed(
         &self,
@@ -88,7 +99,7 @@ fn check_if_match(
 
 #[derive(Default)]
 pub struct RuleBuilder<'a> {
-    rule_type: Option<&'a str>,
+    rule_type: Option<RuleType>,
     identity_name: Option<&'a str>,
     persist: bool,
     keep_env: bool,
@@ -98,16 +109,9 @@ pub struct RuleBuilder<'a> {
     cmd: Option<&'a str>,
     args: Option<Vec<&'a str>>,
 }
-
-#[derive(Debug, PartialEq, Eq, Default)]
-pub struct ConfigArgs {
-    persist: bool,
-    keep_env: bool,
-    no_pass: bool,
-    set_env: HashMap<String, String>,
-    target: Option<String>,
-    cmd: Option<String>,
-    args: Option<Vec<String>>,
+enum RuleType {
+    Permit,
+    Deny,
 }
 
 impl<'a> RuleBuilder<'a> {
@@ -115,52 +119,74 @@ impl<'a> RuleBuilder<'a> {
         Self::default()
     }
 
-    pub fn with_rule_type(mut self, rule: &'a str) -> RuleBuilder<'a> {
-        self.rule_type = Some(rule);
-        self
+    pub fn permit(self) -> Self {
+        Self {
+            rule_type: Some(RuleType::Permit),
+            ..self
+        }
     }
 
-    pub fn with_keep_env(mut self, keep_env: bool) -> RuleBuilder<'a> {
-        self.keep_env = keep_env;
-        self
+    pub fn deny(self) -> Self {
+        Self {
+            rule_type: Some(RuleType::Deny),
+            ..self
+        }
     }
 
-    pub fn with_identity_name(mut self, name: &'a str) -> RuleBuilder<'a> {
-        self.identity_name = Some(name);
-        self
+    pub fn keep_env(self) -> Self {
+        Self {
+            keep_env: true,
+            ..self
+        }
     }
 
-    pub fn with_no_pass(mut self, no_pass: bool) -> RuleBuilder<'a> {
-        self.no_pass = no_pass;
-        self
+    pub fn set_env(self, m: HashMap<&'a str, &'a str>) -> Self {
+        Self { set_env: m, ..self }
     }
 
-    pub fn with_set_env(mut self, env: HashMap<&'a str, &'a str>) -> RuleBuilder<'a> {
-        self.set_env = env;
-        self
+    pub fn identity_name(self, name: &'a str) -> RuleBuilder<'a> {
+        Self {
+            identity_name: Some(name),
+            ..self
+        }
     }
 
-    pub fn with_target(mut self, target_user: &'a str) -> RuleBuilder<'a> {
-        self.target = Some(target_user);
-        self
+    pub fn no_pass(self) -> Self {
+        Self {
+            no_pass: true,
+            ..self
+        }
     }
 
-    pub fn with_persist(mut self, persist: bool) -> RuleBuilder<'a> {
-        self.persist = persist;
-        self
+    pub fn target(self, target_user: &'a str) -> RuleBuilder<'a> {
+        Self {
+            target: Some(target_user),
+            ..self
+        }
     }
 
-    pub fn with_cmd(mut self, cmd: &'a str) -> RuleBuilder<'a> {
-        self.cmd = Some(cmd);
-        self
+    pub fn persist(self) -> RuleBuilder<'a> {
+        Self {
+            persist: true,
+            ..self
+        }
     }
 
-    pub fn with_cmd_args(mut self, args: Vec<&'a str>) -> RuleBuilder<'a> {
-        self.args = Some(args);
-        self
+    pub fn with_cmd(self, cmd: &'a str) -> RuleBuilder<'a> {
+        Self {
+            cmd: Some(cmd),
+            ..self
+        }
     }
 
-    pub fn build(self) -> Result<Rule, ParserError<'static, &'static str>> {
+    pub fn with_cmd_args(self, args: Vec<&'a str>) -> RuleBuilder<'a> {
+        Self {
+            args: Some(args),
+            ..self
+        }
+    }
+
+    pub fn build(self) -> Result<Rule, ParserError<'static>> {
         //arguments for doas user.
         let args = ConfigArgs {
             persist: self.persist,
@@ -178,13 +204,14 @@ impl<'a> RuleBuilder<'a> {
                 .map(|v| v.into_iter().map(|s| s.to_owned()).collect()),
         };
 
-        let identity = self.identity_name.ok_or(ParserError::NoUser)?.to_owned();
+        let identity = self
+            .identity_name
+            .expect("wasn't given identity name.")
+            .to_owned();
 
-        Ok(match self.rule_type.ok_or(ParserError::NoRule)? {
-            "permit" => Rule::Permit(identity, args),
-            "deny" => Rule::Deny(identity, args),
-            "#" => Rule::Comment,
-            a => return Err(ParserError::UnknownRule(a.to_owned())),
+        Ok(match self.rule_type.expect("wasn't given rule type") {
+            RuleType::Permit => Rule::Permit(identity, args),
+            RuleType::Deny => Rule::Deny(identity, args),
         })
     }
 }

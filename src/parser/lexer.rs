@@ -1,0 +1,169 @@
+use nom::bytes::complete::tag;
+use nom::bytes::complete::take_till;
+use nom::bytes::complete::take_until;
+use nom::bytes::complete::take_while;
+use nom::multi::many0;
+
+use std::collections::HashMap;
+
+#[cfg(test)]
+mod lexer_tests;
+
+#[allow(dead_code)]
+pub fn get_tokens(data: &str) -> Result<Vec<Token>, LexerError<&str>> {
+    //This will be updated to hold the remaining data we have yet to parse.
+    let mut data = data.trim();
+    let mut tokens = Vec::new();
+    while let Ok((remaining, token)) =
+        get_next_token(data).map_err(|_| LexerError::CouldntGetNextToken::<&str>)
+    {
+        data = remaining;
+        tokens.push(token);
+    }
+    tokens.push(Token::EOL);
+    Ok(tokens)
+}
+
+fn get_next_token(data: &str) -> nom::IResult<&str, Token, LexerError<&str>> {
+    if data.starts_with('\n') {
+        return Ok((&data[1..], Token::from("\n")));
+    }
+    let (remaining, word) = get_next_word(" \t\n")(data)?;
+    if word == "#" {
+        //if it's a comment just ignore it, and go to the next relevant thing.
+        let (remaining, _) = take_until("\n")(remaining)?;
+        return get_next_token(remaining);
+    }
+    if word == "setenv" {
+        return parse_set_env(remaining);
+    }
+    Ok((remaining, Token::from(word)))
+}
+
+fn parse_set_env(data: &str) -> nom::IResult<&str, Token, LexerError<&str>> {
+    let (remaining, _) = take_till(|c| c == '{')(data)?;
+    let (remaining, _) = tag::<_, _, ()>("{")(remaining) //take the first brace out.
+        .map_err(|_| nom::Err::Failure(LexerError::NoOrUnmatchedBracket))?;
+    let (remaining, between_braces) = take_till(|c| c == '}')(remaining)?;
+    let (remaining, _) = tag::<_, _, ()>("}")(remaining) //make sure our output dosen't contain the last brace.
+        .map_err(|_| nom::Err::Failure(LexerError::NoOrUnmatchedBracket))?;
+    let (_, tokens) = many0(get_next_word(" \t="))(between_braces)?;
+    let num_to_take = if tokens.len() % 2 == 1 {
+        tokens.len() - 1 //eventually we'd want to somehow tell the user that they have an odd number of setenv key/vals.
+                         //this is obviously a bug because key/values should be pairs.
+    } else {
+        tokens.len()
+    };
+    let map = (&tokens[..num_to_take])
+        .chunks(2)
+        .map(|a| {
+            if let [a, b] = a {
+                (*a, *b)
+            } else {
+                panic!("Was given an uneven amount of args in setenv")
+            }
+        })
+        .collect();
+    Ok((remaining, Token::SetEnv(map)))
+}
+
+type Combinator<'a> = dyn Fn(&str) -> nom::IResult<&str, &str, LexerError<&str>> + 'a;
+
+fn get_next_word<'a>(seperator: &'a str) -> Box<Combinator<'a>> {
+    let escaped = std::cell::Cell::new(false);
+    let in_quotes = std::cell::Cell::new(false);
+    //I'm sorry to whoever has to read this atrocity.
+    Box::new(move |contents| {
+        let seperator_detector = |c: char| {
+            if c == '"' && !escaped.get() {
+                in_quotes.set(!in_quotes.get());
+            }
+            if in_quotes.get() {
+                return true;
+            }
+            if escaped.get() {
+                escaped.set(false);
+                return true;
+            }
+            if c == '\\' && !escaped.get() {
+                escaped.set(true);
+            }
+            !seperator.contains(c)
+        };
+        let (remaining, _): (&str, &str) = take_till(seperator_detector)(contents)?;
+        if remaining.is_empty() {
+            return Err(nom::Err::Error(LexerError::NoWordsLeft));
+        }
+        //Reset for the next run.
+        escaped.set(false);
+        in_quotes.set(false);
+        take_while(seperator_detector)(remaining)
+    })
+}
+
+#[derive(Debug, PartialEq, Eq)]
+pub enum Token<'a> {
+    Permit,
+    Deny,
+    Persist,
+    NoPass,
+    KeepEnv,
+    As,
+    Cmd,
+    Args,
+    EOL,
+    Ident(&'a str),
+    SetEnv(HashMap<&'a str, &'a str>),
+}
+
+impl<'a> std::fmt::Display for Token<'a> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Permit => write!(f, "permit"),
+            Self::Deny => write!(f, "deny"),
+            Self::Persist => write!(f, "persist"),
+            Self::NoPass => write!(f, "nopass"),
+            Self::KeepEnv => write!(f, "keepenv"),
+            Self::As => write!(f, "as"),
+            Self::Cmd => write!(f, "cmd"),
+            Self::Args => write!(f, "args"),
+            Self::EOL => write!(f, "End Of Line"),
+            Self::Ident(identifier) => write!(f, "{}", identifier),
+            Self::SetEnv(map) => write!(f, "setenv {{{:?}}}", map),
+        }
+    }
+}
+
+impl<'a> From<&'a str> for Token<'a> {
+    fn from(token: &'a str) -> Self {
+        match token {
+            "permit" => Self::Permit,
+            "deny" => Self::Deny,
+            "\n" => Self::EOL,
+            "nopass" => Self::NoPass,
+            "keepenv" => Self::KeepEnv,
+            "persist" => Self::Persist,
+            "as" => Self::As,
+            "cmd" => Self::Cmd,
+            "args" => Self::Args,
+            c => Self::Ident(c),
+        }
+    }
+}
+
+#[derive(Debug, PartialEq, Eq)]
+pub enum LexerError<I> {
+    NoOrUnmatchedBracket,
+    NoWordsLeft,
+    CouldntGetNextToken,
+    NomError(I, nom::error::ErrorKind),
+}
+
+impl<I> nom::error::ParseError<I> for LexerError<I> {
+    fn from_error_kind(input: I, kind: nom::error::ErrorKind) -> Self {
+        Self::NomError(input, kind)
+    }
+    fn append(_: I, _: nom::error::ErrorKind, other: Self) -> Self {
+        other
+    }
+}
