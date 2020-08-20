@@ -81,7 +81,7 @@ fn check_parse_full_multi_line() {
                 .target("user")
                 .identity_name("test")
                 .with_cmd("echo")
-                .with_cmd_args(vec!["\"hi\""]) //TODO: Change this to not include quotes (unless escaped.) or escaped chars.
+                .with_cmd_args(vec!["\"hi\""])
                 .build()
         ]
     )
