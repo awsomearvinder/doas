@@ -105,9 +105,15 @@ fn check_if_allowed_and_get_rule(
     config_contents: &str,
 ) -> (bool, Option<Rule>) {
     let (mut is_last_match_allowed, mut last_active_rule) = (false, None);
-    for (_, rule) in parser::parse_rules(config_contents).into_iter().enumerate() {
+    for (i, rule) in parser::parse_rules(config_contents).into_iter().enumerate() {
         eprintln!("{:?}", rule);
-        let rule = if let Ok(rule) = rule { rule } else { continue };
+        let rule = match rule {
+            Ok(rule) => rule,
+            Err(e) => {
+                eprintln!("Warning:\n Got error {}\n while working on rule: {}", e, i);
+                continue;
+            }
+        };
         if let Some(is_allowed) = rule.is_allowed(user.get_name(), cmd, cmd_args, target) {
             is_last_match_allowed = is_allowed;
             last_active_rule = Some(rule);
