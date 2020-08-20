@@ -190,15 +190,25 @@ fn set_env_vars(
     shell: &Option<std::path::PathBuf>,
     set_env: Option<&HashMap<String, String>>,
 ) {
-    let term = env::var("TERM").unwrap();
-    let lang = env::var("LANG").unwrap();
-    let color_term = env::var("COLORTERM").unwrap();
-    let display = env::var("DISPLAY").unwrap();
+    let current_vars = [
+        env::var("LANG"),
+        env::var("COLORTERM"),
+        env::var("DISPLAY"),
+        env::var("TERM"),
+    ];
     clear_env_vars();
-    env::set_var("LANG", lang);
-    env::set_var("DISPLAY", display);
-    env::set_var("COLORTERM", color_term);
-    env::set_var("TERM", term);
+    if let Ok(lang) = &current_vars[0] {
+        env::set_var("LANG", lang);
+    }
+    if let Ok(color_term) = &current_vars[1] {
+        env::set_var("COLORTERM", color_term);
+    }
+    if let Ok(display) = &current_vars[2] {
+        env::set_var("DISPLAY", display);
+    }
+    if let Ok(term) = &current_vars[3] {
+        env::set_var("TERM", term);
+    }
     env::set_var("SUDO_USER", current_user.get_name());
     env::set_var("USERNAME", current_user.get_name());
     env::set_var("DOAS_USER", current_user.get_name()); //lol, why the heck not.
