@@ -53,6 +53,16 @@ fn check_unknown_option() {
 }
 
 #[test]
+fn check_unknown_cmd_path() {
+    assert_eq!(
+        parse_rules("permit john john"),
+        vec![Err(ParserError::ExpectedCmdPathGot(lexer::Token::from(
+            "john"
+        )))]
+    )
+}
+
+#[test]
 fn check_parse_full_multi_line() {
     assert_eq!(
         parse_rules(

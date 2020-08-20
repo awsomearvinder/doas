@@ -64,7 +64,8 @@ pub fn parse_rules<'a>(contents: &'a str) -> Vec<Result<Rule, ParserError<'a>>> 
                     break;
                 }
                 Some(token) => {
-                    panic!("Got unexpected token {:?}", token);
+                    rules.push(Err(ParserError::ExpectedCmdPathGot(token)));
+                    break;
                 }
                 None => break 'main,
             }
