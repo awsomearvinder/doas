@@ -5,6 +5,7 @@ use nix::unistd;
 
 use std::collections::HashMap;
 use std::env;
+use std::io;
 use std::os::unix::process::ExitStatusExt;
 
 use crate::parser;
@@ -86,10 +87,10 @@ fn exec_command(command_name: &str, args: &[&str], target_user: &User) {
                 std::process::exit(0);
             }
         }
-        Err(error) => eprintln!(
-            "doas: got some error: {}\n while running {}",
-            error, command_name
-        ),
+        Err(e) if e.kind() == io::ErrorKind::NotFound => {
+            eprintln!("doas: {}: command not found", command_name)
+        }
+        Err(e) => eprintln!("doas: got error: {}\n while running {}", e, command_name),
     }
     std::process::exit(1);
 }
