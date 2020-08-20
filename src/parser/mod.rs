@@ -38,7 +38,6 @@ pub fn parse_rules<'a>(contents: &'a str) -> Vec<Result<Rule, ParserError<'a>>> 
         };
 
         let mut rule = get_options_and_identity(rule, &mut tokens).unwrap();
-        eprintln!("{:?}", contents);
 
         loop {
             match tokens.next() {

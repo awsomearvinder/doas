@@ -77,7 +77,6 @@ fn get_next_word<'a>(seperator: &'a str) -> Box<Combinator<'a>> {
         let seperator_detector = |c: char| {
             if c == '"' && !escaped.get() {
                 in_quotes.set(!in_quotes.get());
-                eprintln!("in_quotes: {:?} c {}", in_quotes, c);
             }
             if in_quotes.get() {
                 return true;

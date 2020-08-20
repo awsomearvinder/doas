@@ -106,7 +106,6 @@ fn check_if_allowed_and_get_rule(
 ) -> (bool, Option<Rule>) {
     let (mut is_last_match_allowed, mut last_active_rule) = (false, None);
     for (i, rule) in parser::parse_rules(config_contents).into_iter().enumerate() {
-        eprintln!("{:?}", rule);
         let rule = match rule {
             Ok(rule) => rule,
             Err(e) => {
@@ -122,7 +121,7 @@ fn check_if_allowed_and_get_rule(
             last_active_rule = Some(rule);
         }
     }
-    dbg!((is_last_match_allowed, last_active_rule))
+    (is_last_match_allowed, last_active_rule)
 }
 
 ///Check if user input password and hashed password are same.
