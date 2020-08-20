@@ -110,7 +110,10 @@ fn check_if_allowed_and_get_rule(
         let rule = match rule {
             Ok(rule) => rule,
             Err(e) => {
-                eprintln!("Warning:\n Got error {}\n while working on rule: {}", e, i);
+                eprintln!(
+                    "Warning:\n Got error in config\n {}\n while working on rule: {}",
+                    e, i
+                );
                 continue;
             }
         };
