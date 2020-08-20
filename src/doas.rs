@@ -31,7 +31,7 @@ pub fn exec_doas(options: &Options, command: &[String]) {
         std::process::exit(1);
     });
     let cmd_args: Vec<_> = cmd.map(|s| s.as_str()).collect();
-    eprintln!("checking if allowed");
+    eprintln!("Checking if allowed.");
     if let (is_allowed, Some(rule)) = check_if_allowed_and_get_rule(
         &current_user,
         &cmd_name,
