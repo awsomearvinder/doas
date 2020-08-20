@@ -37,7 +37,13 @@ pub fn parse_rules<'a>(contents: &'a str) -> Vec<Result<Rule, ParserError<'a>>> 
             None => break 'main,
         };
 
-        let mut rule = get_options_and_identity(rule, &mut tokens).unwrap();
+        let mut rule = match get_options_and_identity(rule, &mut tokens) {
+            Ok(rule) => rule,
+            Err(e) => {
+                rules.push(Err(e));
+                continue 'main;
+            }
+        };
 
         loop {
             match tokens.next() {

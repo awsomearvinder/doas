@@ -36,9 +36,19 @@ fn check_parse_multi_line() {
 fn check_unknown_rule() {
     assert_eq!(
         parse_rules("wiojgroijgioj"),
-        vec![
-            Err(ParserError::ExpectedRuleGot(lexer::Token::from("wiojgroijgioj")))
-        ]
+        vec![Err(ParserError::ExpectedRuleGot(lexer::Token::from(
+            "wiojgroijgioj"
+        )))]
+    )
+}
+
+#[test]
+fn check_unknown_option() {
+    assert_eq!(
+        parse_rules("permit cmd"),
+        vec![Err(ParserError::ExpectedOptionOrIdentityGot(
+            lexer::Token::from("cmd")
+        ))]
     )
 }
 
