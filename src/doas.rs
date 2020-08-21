@@ -12,13 +12,14 @@ use std::os::unix::process::ExitStatusExt;
 
 use crate::parser;
 
+mod persistent_logins;
 mod user;
 
 use user::{Password, User};
 
 ///Execute the main doas program.
 pub fn exec_doas(options: &Options, command: &[String]) {
-    //TODO: do something with user
+    //TODO: switch this out to get current UID and grab it from /etc/passwd
     let current_user = env::var("USER").unwrap();
     let current_user = User::from_name(current_user).unwrap(); //somehow handle these eventually?
     let target_user = User::from_name(options.user.clone()).unwrap_or_else(|_| {
@@ -54,16 +55,9 @@ pub fn exec_doas(options: &Options, command: &[String]) {
                 return;
             }
 
-            //Check for password before execution.
-            let user_input = rpassword::read_password_from_tty(Some(&format!(
-                "[doas] password for {}: ",
-                current_user.get_name()
-            )))
-            .unwrap();
-            if check_pass(&user_input, &current_user.get_password()) != Ok(()) {
-                eprintln!("doas: Authentication failure");
-                return;
-            }
+            get_and_check_pass_if_needed(&rule, &current_user);
+
+            if !rule.get_no_pass() {}
             set_env_vars(
                 &current_user,
                 &target_user,
@@ -71,12 +65,32 @@ pub fn exec_doas(options: &Options, command: &[String]) {
                 &options.shell,
                 rule.get_set_env(),
             );
-
             exec_command(cmd_name, &cmd_args, &target_user)
         } else {
             eprintln!("Denied due to config rule.");
         }
     }
+}
+
+fn get_and_check_pass_if_needed(rule: &Rule, user: &User) -> bool {
+    if rule.get_no_pass() {
+        return true;
+    }
+    //TODO: I should only store UID's as u32.
+    if rule.get_persist() && !persistent_logins::need_pass(user.get_uid().as_raw() as i32) {
+        return true;
+    };
+    //Check for password before execution.
+    let user_input = rpassword::read_password_from_tty(Some(&format!(
+        "[doas] password for {}: ",
+        user.get_name()
+    )))
+    .unwrap();
+    if check_pass(&user_input, &user.get_password()) != Ok(()) {
+        eprintln!("doas: Authentication failure");
+        return false;
+    }
+    true
 }
 
 ///Executes the given command.
@@ -193,7 +207,7 @@ fn set_env_vars(
     target_user: &User,
     command: &[String],
     shell: &Option<std::path::PathBuf>,
-    set_env: Option<&HashMap<String, String>>,
+    set_env: &HashMap<String, String>,
 ) {
     let current_vars = [
         env::var("LANG"),
@@ -247,9 +261,7 @@ fn set_env_vars(
         current_user.get_shell()
     };
     env::set_var("SHELL", shell);
-    if let Some(map) = set_env {
-        for (key, value) in map.iter() {
-            env::set_var(key, value);
-        }
+    for (key, value) in set_env.iter() {
+        env::set_var(key, value);
     }
 }

@@ -15,7 +15,6 @@ use std::collections::HashMap;
 pub enum Rule {
     Permit(String, ConfigArgs),
     Deny(String, ConfigArgs),
-    Comment,
 }
 
 ///The potential args given to any rule.
@@ -54,21 +53,30 @@ impl Rule {
                     None
                 }
             }
-            Self::Comment => None,
         }
     }
-    pub fn get_identity(&self) -> Option<&str> {
+    pub fn get_identity(&self) -> &str {
         match self {
-            Self::Permit(user, _) => Some(user),
-            Self::Deny(user, _) => Some(user),
-            Self::Comment => None,
+            Self::Permit(user, _) => user,
+            Self::Deny(user, _) => user,
         }
     }
-    pub fn get_set_env(&self) -> Option<&HashMap<String, String>> {
+    pub fn get_set_env(&self) -> &HashMap<String, String> {
         match self {
-            Self::Permit(_, args) => Some(&args.set_env),
-            Self::Deny(_, args) => Some(&args.set_env),
-            Self::Comment => None,
+            Self::Permit(_, args) => &args.set_env,
+            Self::Deny(_, args) => &args.set_env,
+        }
+    }
+    pub fn get_no_pass(&self) -> bool {
+        match self {
+            Self::Permit(_, args) => args.no_pass,
+            Self::Deny(_, args) => args.no_pass,
+        }
+    }
+    pub fn get_persist(&self) -> bool {
+        match self {
+            Self::Permit(_, args) => args.persist,
+            Self::Deny(_, args) => args.persist,
         }
     }
 }
