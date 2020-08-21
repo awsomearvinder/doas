@@ -1,5 +1,4 @@
 use crate::parser::rules::Rule;
-use crate::user::{Password, User};
 use crate::Options;
 use nix::unistd;
 
@@ -9,6 +8,10 @@ use std::io;
 use std::os::unix::process::ExitStatusExt;
 
 use crate::parser;
+
+mod user;
+
+use user::{Password, User};
 
 ///Execute doas.
 pub fn exec_doas(options: &Options, command: &[String]) {

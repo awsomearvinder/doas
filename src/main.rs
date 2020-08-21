@@ -2,7 +2,6 @@ use structopt::StructOpt;
 
 pub mod doas;
 pub mod parser;
-pub mod user;
 
 #[derive(Debug, StructOpt)]
 pub struct Options {
