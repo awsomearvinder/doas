@@ -1,6 +1,16 @@
+//! This module defines the Rule type - a type used regularly throughout doas
+//! in order to represent any given rule in the config.
+//! A rule is defined as a series of arguments that apply to doas to one particular user.
+//! A real implementation of doas should always use the last match of the config.
 use super::ParserError;
 use std::collections::HashMap;
 
+//TODO: Remove the Comment enum.
+///Represents a Rule.
+///The first String is the user the rule applies too
+///Config args are the arguments that apply to the user
+///(aside from permit or deny.)
+///Created with RuleBuilder.
 #[derive(Debug, PartialEq, Eq)]
 pub enum Rule {
     Permit(String, ConfigArgs),
@@ -8,6 +18,7 @@ pub enum Rule {
     Comment,
 }
 
+///The potential args given to any rule.
 #[derive(Debug, PartialEq, Eq, Default)]
 pub struct ConfigArgs {
     persist: bool,
@@ -19,6 +30,8 @@ pub struct ConfigArgs {
     args: Option<Vec<String>>,
 }
 impl Rule {
+    ///Returns a boolean representing if the user is allowed to run the command or not
+    ///Returns None in the case that the rule dosen't match on the given args.
     pub fn is_allowed(
         &self,
         name: &str,
@@ -60,6 +73,7 @@ impl Rule {
     }
 }
 
+///Helper function to check if a set of data matches with the rule.
 fn check_if_match(
     user_rule_name: &str,
     user_attempt_name: &str,
@@ -97,6 +111,8 @@ fn check_if_match(
     true
 }
 
+///This instantiates the Rule rather then creating
+///the Rule directly.
 #[derive(Default)]
 pub struct RuleBuilder<'a> {
     rule_type: Option<RuleType>,
@@ -186,6 +202,7 @@ impl<'a> RuleBuilder<'a> {
         }
     }
 
+    //TODO: This probably dosen't need to return a Result anymore.
     pub fn build(self) -> Result<Rule, ParserError<'static>> {
         //arguments for doas user.
         let args = ConfigArgs {
@@ -216,6 +233,8 @@ impl<'a> RuleBuilder<'a> {
     }
 }
 
+///This struct is a helper struct to work with escaped string characters and
+///to remove and parse them out
 #[derive(Debug, Default)]
 struct EscapeString {
     previous_char_is_escape: bool,
@@ -226,6 +245,8 @@ impl EscapeString {
             previous_char_is_escape: false,
         }
     }
+    ///returns whether the character should be escaped based on the previous run (assuming the
+    ///previous run was the character before it)
     fn should_char_be_escaped(&mut self, c: char) -> bool {
         if self.previous_char_is_escape {
             self.previous_char_is_escape = false;
@@ -239,6 +260,7 @@ impl EscapeString {
     }
 }
 
+///Returns a string with parsed out escape characters.
 fn escaped_string(s: &str) -> String {
     let mut escaped_string_state = EscapeString::new();
     s.chars()
@@ -246,6 +268,7 @@ fn escaped_string(s: &str) -> String {
         .collect()
 }
 
+///Minimal tests for escaping strings.
 #[cfg(test)]
 mod tests {
     use super::*;

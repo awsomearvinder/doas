@@ -1,3 +1,6 @@
+//!This is the potential ParserError's the Parser returns.
+//!Fairly self explanatory.
+///The possible errors you could encounter while parsing data inside a doas config.
 #[derive(Debug, PartialEq, Eq)]
 pub enum ParserError<'a> {
     NoUser(&'a str),

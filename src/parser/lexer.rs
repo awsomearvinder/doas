@@ -1,3 +1,5 @@
+///! This module takes given contents and spits out Tokens that are more easily digested
+///! By programs.
 use nom::bytes::complete::tag;
 use nom::bytes::complete::take_till;
 use nom::bytes::complete::take_until;
@@ -9,6 +11,9 @@ use std::collections::HashMap;
 #[cfg(test)]
 mod lexer_tests;
 
+///Returns a Vector of tokens or a lexer error
+///lexer errors exist due to ambiguities (is a token a part of setenv? inside quotes?)
+///when something is missing.
 #[allow(dead_code)]
 pub fn get_tokens(data: &str) -> Result<Vec<Token>, LexerError<&str>> {
     //This will be updated to hold the remaining data we have yet to parse.
@@ -24,6 +29,7 @@ pub fn get_tokens(data: &str) -> Result<Vec<Token>, LexerError<&str>> {
     Ok(tokens)
 }
 
+///This takes the data, returns the next token along with the remaining data.
 fn get_next_token(data: &str) -> nom::IResult<&str, Token, LexerError<&str>> {
     if data.starts_with('\n') {
         return Ok((&data[1..], Token::from("\n")));
@@ -40,6 +46,11 @@ fn get_next_token(data: &str) -> nom::IResult<&str, Token, LexerError<&str>> {
     Ok((remaining, Token::from(word)))
 }
 
+//TODO: It might be a good idea to sub out returning a Token for a HasMap<&str, &str>
+//for less ambiguity. (It can return any token?)
+///This parses the set enviorment seperately from get_next_token
+///due to the added complexity of handling setenv.
+///It returns a Token::SetEnv or a lexer error.
 fn parse_set_env(data: &str) -> nom::IResult<&str, Token, LexerError<&str>> {
     let (remaining, _) = take_till(|c| c == '{')(data)?;
     let (remaining, _) = tag::<_, _, ()>("{")(remaining) //take the first brace out.
@@ -67,8 +78,12 @@ fn parse_set_env(data: &str) -> nom::IResult<&str, Token, LexerError<&str>> {
     Ok((remaining, Token::SetEnv(map)))
 }
 
+///This type represents a combinator function working with &str such as with nom.
 type Combinator<'a> = dyn Fn(&str) -> nom::IResult<&str, &str, LexerError<&str>> + 'a;
 
+//TODO: get_next_word is probably a bad name?
+///Get next value seperated by the seperator and remaining in a tuple.
+///Tosses out the seperator.
 fn get_next_word<'a>(seperator: &'a str) -> Box<Combinator<'a>> {
     let escaped = std::cell::Cell::new(false);
     let in_quotes = std::cell::Cell::new(false);
@@ -101,6 +116,7 @@ fn get_next_word<'a>(seperator: &'a str) -> Box<Combinator<'a>> {
     })
 }
 
+///A lexer Token.
 #[derive(Debug, PartialEq, Eq)]
 pub enum Token<'a> {
     Permit,
@@ -151,6 +167,7 @@ impl<'a> From<&'a str> for Token<'a> {
     }
 }
 
+///Possible instances of a Lexer Error.
 #[derive(Debug, PartialEq, Eq)]
 pub enum LexerError<I> {
     NoOrUnmatchedBracket,

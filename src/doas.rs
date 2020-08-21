@@ -1,3 +1,6 @@
+//!This module is the main module that handles the logic for the doas binary.
+//!It launches programs, parses stuff, and the full jam. This file is fairly straight forward and
+//!boring.
 use crate::parser::rules::Rule;
 use crate::Options;
 use nix::unistd;
@@ -13,7 +16,7 @@ mod user;
 
 use user::{Password, User};
 
-///Execute doas.
+///Execute the main doas program.
 pub fn exec_doas(options: &Options, command: &[String]) {
     //TODO: do something with user
     let current_user = env::var("USER").unwrap();
@@ -76,6 +79,7 @@ pub fn exec_doas(options: &Options, command: &[String]) {
     }
 }
 
+///Executes the given command.
 fn exec_command(command_name: &str, args: &[&str], target_user: &User) {
     let mode = nix::sys::stat::Mode::from_bits(0o0022).unwrap(); //default umask for root.
     nix::sys::stat::umask(mode);
@@ -175,12 +179,14 @@ fn check_pass(unhashed: &str, maybe_hashed_pass: &Password) -> Result<(), ()> {
     }
 }
 
+///This clears all enviorment variables for the program
 fn clear_env_vars() {
     for var in env::vars() {
         env::remove_var(var.0);
     }
 }
 
+//TODO: handle set_env instead of just ignoring it.
 ///Sets the env vars doas works with.
 fn set_env_vars(
     current_user: &User,
