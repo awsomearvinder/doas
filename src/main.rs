@@ -1,3 +1,9 @@
+//!This program is a clone of doas.
+//!It takes the user input, parses the config to see if they're allowed to run
+//!whatever they're doing, and then does it accordingly.
+//!The parser module contains the Parser & Lexer for the config,
+//!doas contains the logic for the main program
+//!persistent_logins will manage the state for the program in /var/lib/doas/persistent_logins
 use structopt::StructOpt;
 
 pub mod doas;

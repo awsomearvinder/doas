@@ -45,6 +45,7 @@ impl User {
     }
 
     ///This function returns a User from /etc/passwd
+    ///If user pass isn't present, it'll find it in /etc/shadow or be given NoPass depending.
     pub fn from_name(name: String) -> Result<User, ()> {
         let passwd_file_contents = std::fs::read_to_string("/etc/passwd")
             .unwrap_or_else(|e| panic!("got error while trying to read /etc/passwd file: {}", e));
@@ -83,6 +84,8 @@ impl User {
         Err(())
     }
 
+    //TODO: Switch out this result from returning Err(()) to an actual sensical error.
+    ///This will parse and read the /etc/shadow and return a Result accordingly.
     fn read_from_shadow(name: &str) -> Result<Password, ()> {
         let shadow_contents = std::fs::read_to_string("/etc/shadow")
             .unwrap_or_else(|_| panic!("couldn't read /etc/shadow"));
@@ -107,6 +110,9 @@ impl User {
     }
 }
 
+///Password will be NoPass if user has no password
+///Password will be Hashed if it's stored in /etc/shadow
+///Password will be plain text if it's stored in /etc/passwd
 #[derive(Debug, PartialEq, Eq)]
 pub enum Password {
     NoPass,

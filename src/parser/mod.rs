@@ -1,3 +1,7 @@
+//! This module is dedicated to parsinng rules by passing passed contents to the lexer - and
+//! parsing the tokens. Dedicated to turning some config for doas to a series of rules (enum)
+//! digestible by your program.
+
 pub mod parser_err;
 use parser_err::ParserError;
 
@@ -9,6 +13,7 @@ mod tests;
 
 mod lexer;
 
+///Parse the rules in contents.
 #[allow(dead_code)]
 pub fn parse_rules<'a>(contents: &'a str) -> Vec<Result<Rule, ParserError<'a>>> {
     let tokens = lexer::get_tokens(contents).unwrap_or_else(|e| panic!("Got err {:?}", e));
@@ -76,6 +81,7 @@ pub fn parse_rules<'a>(contents: &'a str) -> Vec<Result<Rule, ParserError<'a>>> 
     rules
 }
 
+///This gets commands and args inside of the iterator. The last part of a rule.
 pub fn get_cmd_and_args<'a, T: Iterator<Item = lexer::Token<'a>>>(
     mut builder: rules::RuleBuilder<'a>,
     tokens: &mut T,
@@ -106,6 +112,9 @@ pub fn get_cmd_and_args<'a, T: Iterator<Item = lexer::Token<'a>>>(
         None => Err(ParserError::ExpectedCmdNameGot(lexer::Token::EOL)),
     }
 }
+///This takes a iterator, and until it finds a identifier it keeps applying
+///the given options to the rule builder.
+///Once it finds the identifier, set that as the identity_name and return.
 pub fn get_options_and_identity<'a, T: Iterator<Item = lexer::Token<'a>>>(
     mut builder: rules::RuleBuilder<'a>,
     tokens: &mut T,
@@ -126,6 +135,7 @@ pub fn get_options_and_identity<'a, T: Iterator<Item = lexer::Token<'a>>>(
     }
 }
 
+///Moves forward the iterator until the next rule is encountered. (Permit | Deny is found.)
 fn go_until_next_rule<'a, T: Iterator<Item = lexer::Token<'a>>>(
     tokens: &mut std::iter::Peekable<T>,
 ) {
