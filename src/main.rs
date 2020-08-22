@@ -15,8 +15,8 @@ pub struct Options {
     ///If command is supplied, doas will also perform command matching.
     ///In the latter case either 'permit', 'permit nopass', or 'deny' will be printed on standard
     ///output, depending on the command matching results. No command is executed.
-    #[structopt(short = "C", default_value = "/etc/doas.conf", long = "config-file")]
-    config_file: std::path::PathBuf,
+    #[structopt(short = "C", long = "config-file")]
+    config_file: Option<std::path::PathBuf>,
 
     ///Clear any persisted authorizations from previous invocations, then exit.
     ///No command is executed.
@@ -37,12 +37,21 @@ pub struct Options {
 
     ///The command to run under doas.
     #[structopt(
-        required_unless_one = &["shell","L","C"],
+        min_values = 1,
+        required_unless_one = &["shell","clear-persisted-auth", "config-file"],
     )]
     command: Vec<String>,
 }
 
 fn main() {
     let opts = Options::from_args();
+
+    //If you pass the -L flag, clear the persistent logins and move on with your life.
+    if opts.clear_persisted_auth {
+        std::fs::remove_file("/var/lib/doas/persistent_logins")
+            .expect("Couldn't delete the persistent logins file.");
+        std::process::exit(0);
+    }
+
     doas::exec_doas(&opts, &opts.command)
 }
