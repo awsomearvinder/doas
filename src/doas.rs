@@ -9,6 +9,7 @@ use std::collections::HashMap;
 use std::env;
 use std::io;
 use std::os::unix::process::ExitStatusExt;
+use std::path::Path;
 
 use crate::parser;
 
@@ -26,17 +27,25 @@ pub fn exec_doas(options: &Options, command: &[String]) {
         eprintln!("Couldn't find target user");
         std::process::exit(1);
     }); //somehow handle these eventually?
-    let conf_contents = std::fs::read_to_string(&options.config_file).unwrap_or_else(|e| {
+
+    let conf_path = if let Some(path) = &options.config_file {
+        path.as_path()
+    } else {
+        Path::new("/etc/doas.conf")
+    };
+    let conf_contents = std::fs::read_to_string(conf_path).unwrap_or_else(|e| {
         eprintln!(
             "couldn't read config file {:?}, exiting. Error: {}",
             options.config_file, e
         );
         std::process::exit(1);
     });
+
     let mut cmd = command.iter();
+    //If there's no command here, the program must of been executed with something that
+    //Dosen't require the command - so just exit.
     let cmd_name = cmd.next().unwrap_or_else(|| {
-        eprintln!("Did you give a valid command?");
-        std::process::exit(1);
+        std::process::exit(0);
     });
     let cmd_args: Vec<_> = cmd.map(|s| s.as_str()).collect();
     if let (is_allowed, Some(rule)) = check_if_allowed_and_get_rule(
@@ -47,10 +56,8 @@ pub fn exec_doas(options: &Options, command: &[String]) {
         &conf_contents,
     ) {
         if is_allowed {
-            //If the config file is not at default path, -C must of been passed.
-            //If that's true, we don't want to actually run the app. Only say if the
-            //given config allows for the command.
-            if options.config_file.as_os_str().to_str() != Some("/etc/doas.conf") {
+            //If a config file was passed, we don't want to run any command - only say they can.
+            if options.config_file != None {
                 println!("Permitted due to config rule.");
                 return;
             }
