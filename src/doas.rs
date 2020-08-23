@@ -13,6 +13,9 @@ use std::path::Path;
 
 use crate::parser;
 
+#[macro_use]
+mod log;
+
 mod persistent_logins;
 mod user;
 

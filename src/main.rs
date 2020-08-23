@@ -9,6 +9,9 @@ use structopt::StructOpt;
 pub mod doas;
 pub mod parser;
 
+use once_cell::sync::OnceCell;
+pub static SHOULD_LOG: OnceCell<bool> = OnceCell::new();
+
 #[derive(Debug, StructOpt)]
 pub struct Options {
     ///Use config file at this path, then exit.
@@ -52,6 +55,10 @@ fn main() {
             .expect("Couldn't delete the persistent logins file.");
         std::process::exit(0);
     }
+
+    //We should only log if we *aren't* in non-interactive mode.
+    //Note: this is read by the log! macro and logs accordingly.
+    SHOULD_LOG.set(!opts.non_interactive_mode).unwrap();
 
     doas::exec_doas(&opts, &opts.command)
 }
