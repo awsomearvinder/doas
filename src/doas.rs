@@ -27,7 +27,7 @@ pub fn exec_doas(options: &Options, command: &[String]) {
     let current_user = env::var("USER").unwrap();
     let current_user = User::from_name(current_user).unwrap(); //somehow handle these eventually?
     let target_user = User::from_name(options.user.clone()).unwrap_or_else(|_| {
-        eprintln!("Couldn't find target user");
+        err_log!("Couldn't find target user");
         std::process::exit(1);
     }); //somehow handle these eventually?
 
@@ -37,9 +37,10 @@ pub fn exec_doas(options: &Options, command: &[String]) {
         Path::new("/etc/doas.conf")
     };
     let conf_contents = std::fs::read_to_string(conf_path).unwrap_or_else(|e| {
-        eprintln!(
+        err_log!(
             "couldn't read config file {:?}, exiting. Error: {}",
-            options.config_file, e
+            options.config_file,
+            e
         );
         std::process::exit(1);
     });
@@ -61,7 +62,7 @@ pub fn exec_doas(options: &Options, command: &[String]) {
         if is_allowed {
             //If a config file was passed, we don't want to run any command - only say they can.
             if options.config_file != None {
-                println!("Permitted due to config rule.");
+                log!("Permitted due to config rule.");
                 return;
             }
 
@@ -77,7 +78,7 @@ pub fn exec_doas(options: &Options, command: &[String]) {
             );
             exec_command(cmd_name, &cmd_args, &target_user)
         } else {
-            eprintln!("Denied due to config rule.");
+            err_log!("Denied due to config rule.");
         }
     }
 }
@@ -97,7 +98,7 @@ fn get_and_check_pass_if_needed(rule: &Rule, user: &User) -> bool {
     )))
     .unwrap();
     if check_pass(&user_input, &user.get_password()) != Ok(()) {
-        eprintln!("doas: Authentication failure");
+        err_log!("doas: Authentication failure");
         return false;
     }
     true
@@ -119,9 +120,9 @@ fn exec_command(command_name: &str, args: &[&str], target_user: &User) {
             }
         }
         Err(e) if e.kind() == io::ErrorKind::NotFound => {
-            eprintln!("doas: {}: command not found", command_name)
+            err_log!("doas: {}: command not found", command_name)
         }
-        Err(e) => eprintln!("doas: got error: {}\n while running {}", e, command_name),
+        Err(e) => err_log!("doas: got error: {}\n while running {}", e, command_name),
     }
     std::process::exit(1);
 }
@@ -140,7 +141,7 @@ fn check_if_allowed_and_get_rule(
         let rule = match rule {
             Ok(rule) => rule,
             Err(e) => {
-                eprintln!(
+                err_log!(
                     "Warning:\n Got error in config\n {}\n while working on rule: {} \n Skipping rule.",
                     e, i
                 );
