@@ -48,6 +48,7 @@ fn insert_to_file(
     mut file: fs::File,
     map: HashMap<String, DateTime<FixedOffset>>,
 ) -> io::Result<()> {
+    file.set_len(0).unwrap();
     let contents: String = map
         .iter()
         .filter(|(_, &v)| Utc::now() < v)
