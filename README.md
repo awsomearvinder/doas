@@ -9,5 +9,5 @@ NOTE: I'm decently confident that the subset of the config that is implemented i
 As of now, I haven't really used any doas code or looked at how it works, this is purely my code, meaning I'm not basing my code off of any more robust codebase's code either. Look around and play with it if you want, but that's all I'm reccomending.
 
 
-# In case it wasn't obvious enough - look at #23.
+# In case it wasn't obvious enough - look at #24.
 First example of a regression that *heavily* would of compromised security if it was actually used. Don't use this. Please. Don't be dumb.
