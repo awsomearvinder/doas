@@ -66,7 +66,10 @@ pub fn exec_doas(options: &Options, command: &[String]) {
                 return;
             }
 
-            get_and_check_pass_if_needed(&rule, &current_user);
+            if !get_and_check_pass_if_needed(&rule, &current_user) {
+                err_log!("doas: Authentication failure");
+                return;
+            };
 
             if !rule.get_no_pass() {}
             set_env_vars(
@@ -98,7 +101,6 @@ fn get_and_check_pass_if_needed(rule: &Rule, user: &User) -> bool {
     )))
     .unwrap();
     if check_pass(&user_input, &user.get_password()) != Ok(()) {
-        err_log!("doas: Authentication failure");
         return false;
     }
     true
