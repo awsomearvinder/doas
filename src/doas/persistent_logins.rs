@@ -20,6 +20,9 @@ use std::fs;
 use std::io::{self, Read, Write};
 use std::path::Path;
 
+#[macro_use]
+use super::log;
+
 const NEXT_PERSISTENT_LOGIN_QUERY_MINUTES: i64 = 5;
 
 #[allow(dead_code)]
@@ -76,7 +79,7 @@ fn read_persistent_login_file() -> (fs::File, HashMap<String, DateTime<FixedOffs
                 .unwrap()
         }
         Err(e) => {
-            eprintln!("Got unexpected error: {}. Exiting.", e);
+            err_log!("Got unexpected error: {}. Exiting.", e);
             std::process::exit(1);
         }
     };
