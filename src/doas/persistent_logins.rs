@@ -48,12 +48,12 @@ fn insert_to_file(
     mut file: fs::File,
     map: HashMap<String, DateTime<FixedOffset>>,
 ) -> io::Result<()> {
-    let contents: String = dbg!(map)
+    let contents: String = map
         .iter()
         .filter(|(_, &v)| Utc::now() < v)
         .map(|(k, v)| format!("{}={}\n", k, v.to_rfc3339()))
         .collect();
-    file.write_all(dbg!(contents).as_str().as_bytes())
+    file.write_all(contents.as_str().as_bytes())
 }
 
 fn read_persistent_login_file() -> (fs::File, HashMap<String, DateTime<FixedOffset>>) {
