@@ -13,6 +13,7 @@ use once_cell::sync::OnceCell;
 pub static SHOULD_LOG: OnceCell<bool> = OnceCell::new();
 
 #[derive(Debug, StructOpt)]
+#[structopt(setting = structopt::clap::AppSettings::TrailingVarArg)]
 pub struct Options {
     ///Use config file at this path, then exit.
     ///If command is supplied, doas will also perform command matching.
