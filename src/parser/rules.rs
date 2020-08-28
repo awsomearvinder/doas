@@ -13,8 +13,14 @@ use std::collections::HashMap;
 ///Created with RuleBuilder.
 #[derive(Debug, PartialEq, Eq)]
 pub enum Rule {
-    Permit(String, ConfigArgs),
-    Deny(String, ConfigArgs),
+    Permit(UserOrGroup, ConfigArgs),
+    Deny(UserOrGroup, ConfigArgs),
+}
+
+#[derive(Debug, PartialEq, Eq)]
+pub enum UserOrGroup {
+    User(String),
+    Group(String),
 }
 
 ///The potential args given to any rule.
@@ -28,26 +34,28 @@ pub struct ConfigArgs {
     cmd: Option<String>,
     args: Option<Vec<String>>,
 }
+
 impl Rule {
     ///Returns a boolean representing if the user is allowed to run the command or not
     ///Returns None in the case that the rule dosen't match on the given args.
-    pub fn is_allowed(
+    pub fn is_allowed<'a, T: std::fmt::Debug + IntoIterator<Item = &'a str>>(
         &self,
         name: &str,
+        groups: T,
         cmd: &str,
         cmd_args: &[&str],
         target: &str,
     ) -> Option<bool> {
         match self {
             Self::Permit(user, conf_args) => {
-                if check_if_match(user, name, target, cmd, cmd_args, conf_args) {
+                if check_if_match(user, name, groups, target, cmd, cmd_args, conf_args) {
                     Some(true)
                 } else {
                     None
                 }
             }
             Self::Deny(user, conf_args) => {
-                if check_if_match(user, name, target, cmd, cmd_args, conf_args) {
+                if check_if_match(user, name, groups, target, cmd, cmd_args, conf_args) {
                     Some(false)
                 } else {
                     None
@@ -55,7 +63,7 @@ impl Rule {
             }
         }
     }
-    pub fn get_identity(&self) -> &str {
+    pub fn get_identity(&self) -> &UserOrGroup {
         match self {
             Self::Permit(user, _) => user,
             Self::Deny(user, _) => user,
@@ -82,32 +90,33 @@ impl Rule {
 }
 
 ///Helper function to check if a set of data matches with the rule.
-fn check_if_match(
-    user_rule_name: &str,
+fn check_if_match<'a, T: std::fmt::Debug + IntoIterator<Item = &'a str>>(
+    rule_applies_to: &UserOrGroup,
     user_attempt_name: &str,
+    user_groups: T,
     target: &str,
     cmd: &str,
     cmd_args: &[&str],
     conf_args: &ConfigArgs,
 ) -> bool {
-    let mut cmd_args = cmd_args.iter().collect::<Vec<_>>();
-    cmd_args.sort();
-
-    if user_rule_name != user_attempt_name {
-        return false;
+    match rule_applies_to {
+        UserOrGroup::User(s) if s.as_str() != user_attempt_name => return false,
+        UserOrGroup::Group(s) if user_groups.into_iter().all(|g| g != s.as_str()) => return false,
+        _ => (),
     }
+
     if let Some(rule_target) = &conf_args.target {
         if target.trim() != rule_target.trim() {
             return false;
         }
     }
+
     if let Some(conf_cmd) = &conf_args.cmd {
         if conf_cmd.trim() != cmd.trim() {
             return false;
         }
     }
-    if let Some(mut conf_cmd_args) = conf_args.args.clone() {
-        conf_cmd_args.sort();
+    if let Some(conf_cmd_args) = conf_args.args.clone() {
         if !cmd_args
             .iter()
             .map(|s| s.trim())
@@ -229,10 +238,13 @@ impl<'a> RuleBuilder<'a> {
                 .map(|v| v.into_iter().map(|s| escaped_string(s)).collect()),
         };
 
-        let identity = self
-            .identity_name
-            .expect("wasn't given identity name.")
-            .to_owned();
+        let identity = self.identity_name.expect("wasn't given identity name.");
+
+        let identity = if identity.starts_with(':') {
+            UserOrGroup::Group(String::from(&identity[1..]))
+        } else {
+            UserOrGroup::User(String::from(identity))
+        };
 
         Ok(match self.rule_type.expect("wasn't given rule type") {
             RuleType::Permit => Rule::Permit(identity, args),
