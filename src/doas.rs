@@ -24,6 +24,7 @@ use user::{Password, User};
 ///Execute the main doas program.
 pub fn exec_doas(options: &Options, command: &[String]) {
     //TODO: switch this out to get current UID and grab it from /etc/passwd
+    //TODO: This is also a security vulnerability (I can spoof my current user).
     let current_user = env::var("USER").unwrap();
     let current_user = User::from_name(current_user).unwrap(); //somehow handle these eventually?
     let target_user = User::from_name(options.user.clone()).unwrap_or_else(|_| {
@@ -150,7 +151,13 @@ fn check_if_allowed_and_get_rule(
                 continue;
             }
         };
-        if let Some(is_allowed) = rule.is_allowed(user.get_name(), cmd, cmd_args, target) {
+        if let Some(is_allowed) = rule.is_allowed(
+            user.get_name(),
+            user.get_groups().iter().map(|g| g.get_name()),
+            cmd,
+            cmd_args,
+            target,
+        ) {
             is_last_match_allowed = is_allowed;
             last_active_rule = Some(rule);
         }
@@ -245,7 +252,7 @@ fn set_env_vars(
     env::set_var("USERNAME", current_user.get_name());
     env::set_var("DOAS_USER", current_user.get_name()); //lol, why the heck not.
     env::set_var("SUDO_UID", current_user.get_uid().to_string());
-    env::set_var("SUDO_GID", current_user.get_gid().to_string());
+    env::set_var("SUDO_GID", current_user.get_primary_gid().to_string());
     env::set_var(
         "SUDO_COMMAND",
         &command
