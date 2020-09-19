@@ -1,3 +1,6 @@
+# NOTE THIS PROJECT IS ON HOLD
+I do plan to come back to it, but between school, my new setup, and me wanting to learn more about functional programming I have my hands full. This is the project I want to focus on most programming wise, but other stuff has to come first.
+
 # doas clone for linux written in rust
 
 This is just a fun project cause I got bored one day - don't expect much support and I wouldn't reccomend using it. If you _do_ decide to use it, file issues by all means, but again: this is a hobby project, nothing more, nothing less. Keep your expectations low and use sudo or whatever unless you _really_ want to try this out.
