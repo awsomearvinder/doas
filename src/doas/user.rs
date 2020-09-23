@@ -148,7 +148,7 @@ impl Group {
     ///This will parse and read the /etc/gshadow and return a Result accordingly.
     fn read_from_shadow(name: &str) -> Result<Password, ()> {
         let shadow_contents = std::fs::read_to_string("/etc/gshadow")
-            .unwrap_or_else(|_| panic!("couldn't read /etc/shadow"));
+            .unwrap_or_else(|_| panic!("couldn't read /etc/gshadow"));
 
         for line in shadow_contents.split('\n') {
             let mut segments = line.split(':');
