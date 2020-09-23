@@ -148,7 +148,7 @@ impl Group {
     ///This will parse and read the /etc/gshadow and return a Result accordingly.
     fn read_from_shadow(name: &str) -> Result<Password, ()> {
         let shadow_contents = std::fs::read_to_string("/etc/gshadow")
-            .unwrap_or_else(|_| panic!("couldn't read /etc/shadow"));
+            .map_err(|_|())?;
 
         for line in shadow_contents.split('\n') {
             let mut segments = line.split(':');
@@ -182,7 +182,7 @@ impl Group {
             //If this password is "x", it means it's stored in /etc/shadow.
             let password = group_info.next().ok_or(())?;
             let password = match password {
-                "x" => Self::read_from_shadow(&name)?,
+                "x" => Self::read_from_shadow(&name).unwrap_or(Password::NoPass),
                 "*" | "!" | "**" | "!!" => Password::NoPass,
                 pass => Password::Unhashed(pass.into()),
             };
