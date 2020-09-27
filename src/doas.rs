@@ -23,9 +23,10 @@ use user::{Password, User};
 
 ///Execute the main doas program.
 pub fn exec_doas(options: &Options, command: &[String]) {
-    //TODO: switch this out to get current UID and grab it from /etc/passwd
-    //TODO: This is also a security vulnerability (I can spoof my current user).
-    let current_user = User::from_uid(unistd::Uid::current().as_raw()).unwrap(); //somehow handle these eventually?
+    let current_user = User::from_uid(unistd::Uid::current().as_raw()).unwrap_or_else( |_| {
+        err_log!("Couldn't get user with current UID");
+        std::process::exit(1);
+    });
     let target_user = User::from_name(options.user.clone()).unwrap_or_else(|_| {
         err_log!("Couldn't find target user");
         std::process::exit(1);
@@ -44,8 +45,9 @@ pub fn exec_doas(options: &Options, command: &[String]) {
         );
         std::process::exit(1);
     });
-
+    
     let mut cmd = command.iter();
+    
     //If there's no command here, the program must of been executed with something that
     //Dosen't require the command - so just exit.
     let cmd_name = cmd.next().unwrap_or_else(|| {
