@@ -15,7 +15,7 @@ mod lexer;
 
 ///Parse the rules in contents.
 #[allow(dead_code)]
-pub fn parse_rules<'a>(contents: &'a str) -> Vec<Result<Rule, ParserError<'a>>> {
+pub fn parse_rules(contents: &str) -> Vec<Result<Rule, ParserError<'_>>> {
     let tokens = lexer::get_tokens(contents).unwrap_or_else(|e| panic!("Got err {:?}", e));
     let mut tokens = tokens.into_iter().peekable();
     let mut rules = vec![];
@@ -24,7 +24,7 @@ pub fn parse_rules<'a>(contents: &'a str) -> Vec<Result<Rule, ParserError<'a>>> 
         let rule = match tokens.next() {
             Some(lexer::Token::Permit) => rule.permit(),
             Some(lexer::Token::Deny) => rule.deny(),
-            Some(lexer::Token::EOL) => continue,
+            Some(lexer::Token::Eol) => continue,
             Some(token) => {
                 rules.push(Err(ParserError::ExpectedRuleGot(token)));
                 loop {
@@ -59,13 +59,13 @@ pub fn parse_rules<'a>(contents: &'a str) -> Vec<Result<Rule, ParserError<'a>>> 
                         rules.push(Err(ParserError::ExpectedTargetGot(token)));
                         continue 'main;
                     }
-                    None => rules.push(Err(ParserError::ExpectedTargetGot(lexer::Token::EOL))),
+                    None => rules.push(Err(ParserError::ExpectedTargetGot(lexer::Token::Eol))),
                 },
                 Some(lexer::Token::Cmd) => {
                     rules.push(get_cmd_and_args(rule, &mut tokens));
                     break;
                 }
-                Some(lexer::Token::EOL) => {
+                Some(lexer::Token::Eol) => {
                     rules.push(rule.build());
                     break;
                 }
@@ -96,20 +96,20 @@ pub fn get_cmd_and_args<'a, T: Iterator<Item = lexer::Token<'a>>>(
                     for i in tokens {
                         if let lexer::Token::Ident(arg) = i {
                             args.push(arg);
-                        } else if lexer::Token::EOL == i {
+                        } else if lexer::Token::Eol == i {
                             break;
                         }
                     }
                     builder = builder.with_cmd_args(args);
                     builder.build()
                 }
-                Some(lexer::Token::EOL) => builder.build(),
+                Some(lexer::Token::Eol) => builder.build(),
                 Some(token) => panic!("expected args token, found token {:?}", token),
                 None => builder.build(),
             }
         }
         Some(token) => Err(ParserError::ExpectedCmdNameGot(token)),
-        None => Err(ParserError::ExpectedCmdNameGot(lexer::Token::EOL)),
+        None => Err(ParserError::ExpectedCmdNameGot(lexer::Token::Eol)),
     }
 }
 ///This takes a iterator, and until it finds a identifier it keeps applying
@@ -130,7 +130,7 @@ pub fn get_options_and_identity<'a, T: Iterator<Item = lexer::Token<'a>>>(
                 return Ok(builder);
             }
             Some(token) => return Err(ParserError::ExpectedOptionOrIdentityGot(token)),
-            None => return Err(ParserError::ExpectedOptionOrIdentityGot(lexer::Token::EOL)),
+            None => return Err(ParserError::ExpectedOptionOrIdentityGot(lexer::Token::Eol)),
         }
     }
 }

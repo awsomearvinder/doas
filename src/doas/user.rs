@@ -147,8 +147,7 @@ impl Group {
     //TODO: Switch out this result from returning Err(()) to an actual sensical error.
     ///This will parse and read the /etc/gshadow and return a Result accordingly.
     fn read_from_shadow(name: &str) -> Result<Password, ()> {
-        let shadow_contents = std::fs::read_to_string("/etc/gshadow")
-            .map_err(|_|())?;
+        let shadow_contents = std::fs::read_to_string("/etc/gshadow").map_err(|_| ())?;
 
         for line in shadow_contents.split('\n') {
             let mut segments = line.split(':');
@@ -182,7 +181,7 @@ impl Group {
             //If this password is "x", it means it's stored in /etc/shadow.
             let password = group_info.next().ok_or(())?;
             let password = match password {
-                "x" => Self::read_from_shadow(&name).unwrap_or(Password::NoPass),
+                "x" => Self::read_from_shadow(name).unwrap_or(Password::NoPass),
                 "*" | "!" | "**" | "!!" => Password::NoPass,
                 pass => Password::Unhashed(pass.into()),
             };
@@ -221,10 +220,6 @@ impl User {
 
     pub fn get_primary_gid(&self) -> u32 {
         self.primary_gid
-    }
-
-    pub fn get_uid_info(&self) -> &str {
-        &self.uid_info
     }
 
     pub fn get_home(&self) -> &Path {

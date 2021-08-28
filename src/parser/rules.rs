@@ -240,8 +240,8 @@ impl<'a> RuleBuilder<'a> {
 
         let identity = self.identity_name.expect("wasn't given identity name.");
 
-        let identity = if identity.starts_with(':') {
-            UserOrGroup::Group(String::from(&identity[1..]))
+        let identity = if let Some(identity) = identity.strip_prefix(':') {
+            UserOrGroup::Group(String::from(identity))
         } else {
             UserOrGroup::User(String::from(identity))
         };
