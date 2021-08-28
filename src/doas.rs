@@ -23,7 +23,7 @@ use user::{Password, User};
 
 ///Execute the main doas program.
 pub fn exec_doas(options: &Options, command: &[String]) {
-    let current_user = User::from_uid(unistd::Uid::current().as_raw()).unwrap_or_else( |_| {
+    let current_user = User::from_uid(unistd::Uid::current().as_raw()).unwrap_or_else(|_| {
         err_log!("Couldn't get user with current UID");
         std::process::exit(1);
     });
@@ -45,9 +45,9 @@ pub fn exec_doas(options: &Options, command: &[String]) {
         );
         std::process::exit(1);
     });
-    
+
     let mut cmd = command.iter();
-    
+
     //If there's no command here, the program must of been executed with something that
     //Dosen't require the command - so just exit.
     let cmd_name = cmd.next().unwrap_or_else(|| {
@@ -56,7 +56,7 @@ pub fn exec_doas(options: &Options, command: &[String]) {
     let cmd_args: Vec<_> = cmd.map(|s| s.as_str()).collect();
     if let (is_allowed, Some(rule)) = check_if_allowed_and_get_rule(
         &current_user,
-        &cmd_name,
+        cmd_name,
         &cmd_args,
         target_user.get_name(),
         &conf_contents,
@@ -102,7 +102,7 @@ fn get_and_check_pass_if_needed(rule: &Rule, user: &User) -> bool {
         user.get_name()
     )))
     .unwrap();
-    if check_pass(&user_input, &user.get_password()) != Ok(()) {
+    if check_pass(&user_input, user.get_password()) != Ok(()) {
         return false;
     }
     true

@@ -25,14 +25,14 @@ pub fn get_tokens(data: &str) -> Result<Vec<Token>, LexerError<&str>> {
         data = remaining;
         tokens.push(token);
     }
-    tokens.push(Token::EOL);
+    tokens.push(Token::Eol);
     Ok(tokens)
 }
 
 ///This takes the data, returns the next token along with the remaining data.
 fn get_next_token(data: &str) -> nom::IResult<&str, Token, LexerError<&str>> {
-    if data.starts_with('\n') {
-        return Ok((&data[1..], Token::from("\n")));
+    if let Some(data) = data.strip_prefix('\n') {
+        return Ok((data, Token::from("\n")));
     }
     let (remaining, word) = get_next_word(" \t\n")(data)?;
     if word == "#" {
@@ -84,7 +84,7 @@ type Combinator<'a> = dyn Fn(&str) -> nom::IResult<&str, &str, LexerError<&str>>
 //TODO: get_next_word is probably a bad name?
 ///Get next value seperated by the seperator and remaining in a tuple.
 ///Tosses out the seperator.
-fn get_next_word<'a>(seperator: &'a str) -> Box<Combinator<'a>> {
+fn get_next_word(seperator: &str) -> Box<Combinator<'_>> {
     let escaped = std::cell::Cell::new(false);
     let in_quotes = std::cell::Cell::new(false);
     //I'm sorry to whoever has to read this atrocity.
@@ -127,7 +127,7 @@ pub enum Token<'a> {
     As,
     Cmd,
     Args,
-    EOL,
+    Eol,
     Ident(&'a str),
     SetEnv(HashMap<&'a str, &'a str>),
 }
@@ -143,7 +143,7 @@ impl<'a> std::fmt::Display for Token<'a> {
             Self::As => write!(f, "as"),
             Self::Cmd => write!(f, "cmd"),
             Self::Args => write!(f, "args"),
-            Self::EOL => write!(f, "End Of Line"),
+            Self::Eol => write!(f, "End Of Line"),
             Self::Ident(identifier) => write!(f, "{}", identifier),
             Self::SetEnv(map) => write!(f, "setenv {{{:?}}}", map),
         }
@@ -155,7 +155,7 @@ impl<'a> From<&'a str> for Token<'a> {
         match token {
             "permit" => Self::Permit,
             "deny" => Self::Deny,
-            "\n" => Self::EOL,
+            "\n" => Self::Eol,
             "nopass" => Self::NoPass,
             "keepenv" => Self::KeepEnv,
             "persist" => Self::Persist,
